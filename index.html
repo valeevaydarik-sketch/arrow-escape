@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Arrow Escape">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0F172A">
+<title>Arrow Escape</title>
+<style>
+  :root{
+    --bg:#0F172A; --panel:#1E293B; --text:#E2E8F0; --muted:#94A3B8;
+    --accent:#22C55E; --blue:#3B82F6; --amber:#F59E0B; --red:#EF4444;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;height:100%;background:#020617;color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+  #app{position:relative;margin:0 auto;height:100dvh;max-width:430px;max-height:932px;background:var(--bg);
+    display:flex;flex-direction:column;overflow:hidden}
+  @media (min-width:500px){
+    #app{margin-top:max(0px,calc((100dvh - 932px)/2));border-radius:36px;box-shadow:0 0 0 8px #111827,0 20px 60px rgba(0,0,0,.6)}
+  }
+  header{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 6px}
+  .lvl{font-size:22px;font-weight:700;letter-spacing:.2px}
+  .hearts{font-size:22px;letter-spacing:4px;min-width:90px;text-align:right;color:var(--red)}
+  .sub{display:flex;justify-content:space-between;padding:0 18px 4px;color:var(--muted);font-size:14px}
+  #stage{flex:1;position:relative;margin:6px 0}
+  canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+  footer{display:flex;gap:10px;padding:8px 14px calc(env(safe-area-inset-bottom,0px) + 16px)}
+  button{font:inherit;color:var(--text);background:var(--panel);border:1px solid #334155;border-radius:14px;
+    padding:13px 10px;font-size:15px;font-weight:600;flex:1;cursor:pointer;transition:transform .08s,background .15s}
+  button:active{transform:scale(.96);background:#273449}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#04210f}
+  button.small{flex:0 0 auto;padding:13px 18px}
+  button.big{padding:17px 10px;font-size:17px;border-radius:16px;width:100%;flex:none}
+  #toast{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);background:rgba(30,41,59,.95);
+    border:1px solid #334155;padding:10px 16px;border-radius:12px;font-size:14px;color:var(--text);
+    opacity:0;pointer-events:none;transition:opacity .25s;text-align:center;max-width:86%}
+  #toast.show{opacity:1}
+  #overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    background:rgba(2,6,23,.72);backdrop-filter:blur(4px);z-index:6}
+  #overlay.show{display:flex}
+  .card{background:var(--panel);border:1px solid #334155;border-radius:22px;padding:26px 24px;width:82%;text-align:center}
+  .card h2{margin:0 0 8px;font-size:26px}
+  .card p{margin:0 0 18px;color:var(--muted);font-size:15px;line-height:1.45}
+  .stars{font-size:34px;letter-spacing:6px;margin-bottom:10px;color:var(--amber)}
+  .streak{color:var(--amber);font-weight:700;margin-bottom:14px}
+
+  /* home */
+  #home{position:absolute;inset:0;z-index:4;background:var(--bg);display:flex;flex-direction:column;align-items:center;
+    justify-content:center;padding:24px 26px calc(env(safe-area-inset-bottom,0px) + 24px);gap:12px;text-align:center}
+  #home.hide{display:none}
+  #home h1{margin:6px 0 0;font-size:36px;letter-spacing:.3px}
+  #home .tag{margin:0 0 18px;color:var(--muted);font-size:15px}
+  #home .row{display:flex;gap:10px;width:100%}
+  #home .row button{padding:13px 6px;font-size:14px}
+  #home .row button,#home .row select{flex:1;min-width:0}
+  #home .row button{white-space:normal;line-height:1.2}
+  select{font:inherit;color:var(--text);background:var(--panel);border:1px solid #334155;border-radius:14px;
+    padding:13px 6px;font-size:14px;font-weight:600;cursor:pointer;appearance:none;-webkit-appearance:none;
+    text-align:center;text-align-last:center}
+  select option{background:#1E293B;color:#E2E8F0}
+  #hDaily small{display:block;font-weight:500;color:var(--muted);font-size:13px;margin-top:3px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="lvl" id="lvl">Level 1</div>
+    <div class="hearts" id="hearts"></div>
+  </header>
+  <div class="sub"><span id="left"></span><span id="best"></span></div>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="toast"></div>
+  <footer>
+    <button id="btnHint"></button>
+    <button id="btnRestart"></button>
+    <button id="btnHome" class="small" aria-label="Home">⌂</button>
+  </footer>
+
+  <div id="home">
+    <svg width="120" height="120" viewBox="0 0 120 120" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 34 H70" stroke="#38BDF8" stroke-width="10"/><path d="M66 22 L90 34 L66 46 Z" fill="#38BDF8" stroke="#38BDF8" stroke-width="4"/>
+      <path d="M100 58 H52 V86" stroke="#34D399" stroke-width="10"/><path d="M40 82 L52 106 L64 82 Z" fill="#34D399" stroke="#34D399" stroke-width="4"/>
+      <path d="M20 104 V76" stroke="#FBBF24" stroke-width="10"/><path d="M8 78 L20 54 L32 78 Z" fill="#FBBF24" stroke="#FBBF24" stroke-width="4"/>
+    </svg>
+    <h1>Arrow Escape</h1>
+    <p class="tag" id="hTag"></p>
+    <button class="primary big" id="hPlay"></button>
+    <button class="big" id="hDaily"></button>
+    <div class="row">
+      <button id="hSound"></button>
+      <select id="hLang" aria-label="Language"></select>
+      <button id="hHow"></button>
+    </div>
+  </div>
+
+  <div id="overlay"><div class="card" id="card"></div></div>
+</div>
+
+<script>
+// ============================== i18n ==============================
+const I18N = {
+  en: {
+    level:'Level', left:'Arrows left', hint:'Hint', restart:'Restart', daily:'Daily', dailyBtn:'Daily challenge',
+    win:'Level complete!', next:'Next level', fail:'Out of lives', retry:'Try again', ok:'Got it',
+    howto:'Tap an arrow to slide it out.\nIf another arrow is in the way, you lose a heart.\nThink about the order!',
+    play:'Play', playLevel:'Play · Level', blocked:'Blocked!', nohint:'No hints left',
+    tagline:'Free every arrow. Mind the order.', how:'How to play',
+    soundOn:'Sound: on', soundOff:'Sound: off', done:'Done today ✓', today:'New puzzle every day',
+    dailyWin:'Daily solved!', streak:'Streak', days:'days', back:'Back home', tapHint:'This one can slide out'
+  },
+  es: {
+    level:'Nivel', left:'Flechas restantes', hint:'Pista', restart:'Reiniciar', daily:'Diario', dailyBtn:'Reto diario',
+    win:'¡Nivel superado!', next:'Siguiente nivel', fail:'Sin vidas', retry:'Reintentar', ok:'Entendido',
+    howto:'Toca una flecha para sacarla.\nSi otra flecha está en el camino, pierdes un corazón.\n¡Piensa en el orden!',
+    play:'Jugar', playLevel:'Jugar · Nivel', blocked:'¡Bloqueada!', nohint:'No quedan pistas',
+    tagline:'Libera todas las flechas. Cuida el orden.', how:'Cómo jugar',
+    soundOn:'Sonido: sí', soundOff:'Sonido: no', done:'Hecho hoy ✓', today:'Un puzzle nuevo cada día',
+    dailyWin:'¡Reto diario resuelto!', streak:'Racha', days:'días', back:'Inicio', tapHint:'Esta flecha puede salir'
+  },
+  pt: {
+    level:'Nível', left:'Setas restantes', hint:'Dica', restart:'Reiniciar', daily:'Diário', dailyBtn:'Desafio diário',
+    win:'Nível concluído!', next:'Próximo nível', fail:'Sem vidas', retry:'Tentar de novo', ok:'Entendi',
+    howto:'Toque em uma seta para tirá-la do caminho.\nSe outra seta estiver na frente, você perde um coração.\nPense na ordem!',
+    play:'Jogar', playLevel:'Jogar · Nível', blocked:'Bloqueada!', nohint:'Sem dicas',
+    tagline:'Liberte todas as setas. Atenção à ordem.', how:'Como jogar',
+    soundOn:'Som: ligado', soundOff:'Som: desligado', done:'Feito hoje ✓', today:'Um quebra-cabeça novo por dia',
+    dailyWin:'Desafio diário concluído!', streak:'Sequência', days:'dias', back:'Início', tapHint:'Esta seta pode sair'
+  },
+  id: {
+    level:'Level', left:'Sisa panah', hint:'Petunjuk', restart:'Ulangi', daily:'Harian', dailyBtn:'Tantangan harian',
+    win:'Level selesai!', next:'Level berikutnya', fail:'Nyawa habis', retry:'Coba lagi', ok:'Mengerti',
+    howto:'Ketuk panah untuk menggesernya keluar.\nJika ada panah lain yang menghalangi, kamu kehilangan satu hati.\nPikirkan urutannya!',
+    play:'Main', playLevel:'Main · Level', blocked:'Terhalang!', nohint:'Petunjuk habis',
+    tagline:'Bebaskan semua panah. Perhatikan urutannya.', how:'Cara bermain',
+    soundOn:'Suara: hidup', soundOff:'Suara: mati', done:'Selesai hari ini ✓', today:'Teka-teki baru setiap hari',
+    dailyWin:'Tantangan harian selesai!', streak:'Beruntun', days:'hari', back:'Beranda', tapHint:'Panah ini bisa keluar'
+  },
+  tr: {
+    level:'Seviye', left:'Kalan ok', hint:'İpucu', restart:'Yeniden', daily:'Günlük', dailyBtn:'Günlük meydan okuma',
+    win:'Seviye tamam!', next:'Sonraki seviye', fail:'Canın bitti', retry:'Tekrar dene', ok:'Anladım',
+    howto:'Bir oka dokun, dışarı kayar.\nYolunda başka bir ok varsa bir kalp kaybedersin.\nSırayı düşün!',
+    play:'Oyna', playLevel:'Oyna · Seviye', blocked:'Engellendi!', nohint:'İpucu kalmadı',
+    tagline:'Tüm okları kurtar. Sıraya dikkat.', how:'Nasıl oynanır',
+    soundOn:'Ses: açık', soundOff:'Ses: kapalı', done:'Bugün tamam ✓', today:'Her gün yeni bulmaca',
+    dailyWin:'Günlük görev tamam!', streak:'Seri', days:'gün', back:'Ana sayfa', tapHint:'Bu ok çıkabilir'
+  },
+  de: {
+    level:'Level', left:'Pfeile übrig', hint:'Tipp', restart:'Neustart', daily:'Täglich', dailyBtn:'Tägliche Aufgabe',
+    win:'Level geschafft!', next:'Nächstes Level', fail:'Keine Leben mehr', retry:'Nochmal', ok:'Verstanden',
+    howto:'Tippe auf einen Pfeil, damit er herausgleitet.\nSteht ein anderer Pfeil im Weg, verlierst du ein Herz.\nAchte auf die Reihenfolge!',
+    play:'Spielen', playLevel:'Spielen · Level', blocked:'Blockiert!', nohint:'Keine Tipps mehr',
+    tagline:'Befreie alle Pfeile. Achte auf die Reihenfolge.', how:'Anleitung',
+    soundOn:'Ton: an', soundOff:'Ton: aus', done:'Heute erledigt ✓', today:'Jeden Tag ein neues Rätsel',
+    dailyWin:'Tagesaufgabe gelöst!', streak:'Serie', days:'Tage', back:'Zum Start', tapHint:'Dieser Pfeil kann raus'
+  },
+  fr: {
+    level:'Niveau', left:'Flèches restantes', hint:'Indice', restart:'Recommencer', daily:'Quotidien', dailyBtn:'Défi du jour',
+    win:'Niveau terminé !', next:'Niveau suivant', fail:'Plus de vies', retry:'Réessayer', ok:'Compris',
+    howto:'Touche une flèche pour la faire sortir.\nSi une autre flèche bloque le chemin, tu perds un cœur.\nPense à l\'ordre !',
+    play:'Jouer', playLevel:'Jouer · Niveau', blocked:'Bloquée !', nohint:'Plus d\'indices',
+    tagline:'Libère toutes les flèches. Attention à l\'ordre.', how:'Comment jouer',
+    soundOn:'Son : activé', soundOff:'Son : coupé', done:'Fait aujourd\'hui ✓', today:'Un nouveau puzzle chaque jour',
+    dailyWin:'Défi du jour réussi !', streak:'Série', days:'jours', back:'Accueil', tapHint:'Cette flèche peut sortir'
+  },
+  hi: {
+    level:'लेवल', left:'बचे तीर', hint:'संकेत', restart:'फिर से', daily:'दैनिक', dailyBtn:'आज की चुनौती',
+    win:'लेवल पूरा!', next:'अगला लेवल', fail:'जीवन खत्म', retry:'फिर कोशिश करें', ok:'समझ गया',
+    howto:'तीर पर टैप करें, वह बाहर खिसक जाएगा।\nअगर रास्ते में दूसरा तीर हो, तो एक दिल घट जाएगा।\nक्रम के बारे में सोचें!',
+    play:'खेलें', playLevel:'खेलें · लेवल', blocked:'रास्ता बंद!', nohint:'संकेत खत्म',
+    tagline:'सभी तीर आज़ाद करें। क्रम का ध्यान रखें।', how:'कैसे खेलें',
+    soundOn:'आवाज़: चालू', soundOff:'आवाज़: बंद', done:'आज पूरा ✓', today:'हर दिन नई पहेली',
+    dailyWin:'आज की चुनौती पूरी!', streak:'लगातार', days:'दिन', back:'होम', tapHint:'यह तीर बाहर निकल सकता है'
+  },
+  ru: {
+    level:'Уровень', left:'Осталось стрелок', hint:'Подсказка', restart:'Заново', daily:'Задание дня', dailyBtn:'Задание дня',
+    win:'Уровень пройден!', next:'Дальше', fail:'Жизни закончились', retry:'Ещё раз', ok:'Понятно',
+    howto:'Нажми на стрелку, чтобы она выехала.\nЕсли на пути другая стрелка, теряешь сердце.\nДумай о порядке!',
+    play:'Играть', playLevel:'Играть · Уровень', blocked:'Заблокировано!', nohint:'Подсказки закончились',
+    tagline:'Освободи все стрелки. Важен порядок.', how:'Как играть',
+    soundOn:'Звук: вкл', soundOff:'Звук: выкл', done:'Сегодня пройдено ✓', today:'Новая головоломка каждый день',
+    dailyWin:'Задание дня пройдено!', streak:'Серия', days:'дн.', back:'Домой', tapHint:'Эта стрелка может выехать'
+  }
+};
+const LANGS = { en:'English', es:'Español', pt:'Português', id:'Bahasa Indonesia', tr:'Türkçe', de:'Deutsch', fr:'Français', hi:'हिन्दी', ru:'Русский' };
+function detectLang(){
+  const list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
+  for (const l of list){
+    let c = String(l).toLowerCase().slice(0, 2);
+    if (c === 'in') c = 'id';          // legacy Indonesian code
+    if (LANGS[c]) return c;
+  }
+  return 'en';
+}
+
+// ============================== Generator ==============================
+// <GEN>
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]]; // up,right,down,left  as [dx,dy]
+
+function levelParams(level){
+  const size = Math.min(11, 5 + Math.floor((level - 1) / 2));
+  const maxLen = Math.min(9, 3 + Math.floor(level / 3));
+  return { size, maxLen };
+}
+
+// Arrows are created in REVERSE removal order: every new arrow's exit ray must be
+// free of already-placed cells, so the board is always solvable (remove in reverse order).
+function generateLevel(level, opts){
+  const lp = levelParams(level);
+  const size = opts && opts.size ? opts.size : lp.size;
+  const maxLen = opts && opts.maxLen ? opts.maxLen : lp.maxLen;
+  const baseSeed = opts && opts.seed != null ? opts.seed : level * 7919 + 13;
+  for (let salt = 0; salt < 50; salt++){
+    const rng = mulberry32(baseSeed + salt * 104729);
+    const occ = Array.from({length:size}, () => Array(size).fill(-1));
+    const arrows = [];
+    const attempts = size * size * 45;
+    for (let a = 0; a < attempts; a++){
+      const sx = Math.floor(rng() * size), sy = Math.floor(rng() * size);
+      if (occ[sy][sx] !== -1) continue;
+      const target = 2 + Math.floor(rng() * (maxLen - 1));
+      const cells = [[sx, sy]];
+      const used = new Set([sx + ',' + sy]);
+      let lastDir = Math.floor(rng() * 4);
+      while (cells.length < target){
+        const [cx, cy] = cells[cells.length - 1];
+        const order = [];
+        // prefer going straight, otherwise turn
+        const straight = rng() < 0.5;
+        const cand = [0,1,2,3];
+        for (let i = 3; i > 0; i--){ const j = Math.floor(rng() * (i + 1)); const tmp = cand[i]; cand[i] = cand[j]; cand[j] = tmp; }
+        if (straight) order.push(lastDir);
+        for (const d of cand) if (!order.includes(d)) order.push(d);
+        let moved = false;
+        for (const d of order){
+          const nx = cx + DIRS[d][0], ny = cy + DIRS[d][1];
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          if (occ[ny][nx] !== -1 || used.has(nx + ',' + ny)) continue;
+          cells.push([nx, ny]); used.add(nx + ',' + ny); lastDir = d; moved = true; break;
+        }
+        if (!moved) break;
+      }
+      if (cells.length < 2) continue;
+      const [hx, hy] = cells[cells.length - 1];
+      const [px, py] = cells[cells.length - 2];
+      const dx = hx - px, dy = hy - py;
+      // ray from head to the edge must be free of placed cells and own body
+      let ok = true, rx = hx + dx, ry = hy + dy;
+      while (rx >= 0 && ry >= 0 && rx < size && ry < size){
+        if (occ[ry][rx] !== -1 || used.has(rx + ',' + ry)){ ok = false; break; }
+        rx += dx; ry += dy;
+      }
+      if (!ok) continue;
+      const id = arrows.length;
+      for (const [x, y] of cells) occ[y][x] = id;
+      arrows.push({ id, cells, dx, dy, color: Math.floor(rng() * 6), removed: false });
+    }
+    const minArrows = Math.max(4, Math.floor(size * size / 6));
+    if (arrows.length >= minArrows) return { size, arrows, occ };
+  }
+  throw new Error('generation failed');
+}
+
+function rayOf(arrow, size){
+  const [hx, hy] = arrow.cells[arrow.cells.length - 1];
+  const ray = []; let x = hx + arrow.dx, y = hy + arrow.dy;
+  while (x >= 0 && y >= 0 && x < size && y < size){ ray.push([x, y]); x += arrow.dx; y += arrow.dy; }
+  return ray;
+}
+// returns blocking arrow id or -1 if the way out is clear
+function blockerOf(arrow, occ, size){
+  for (const [x, y] of rayOf(arrow, size)){
+    const o = occ[y][x];
+    if (o !== -1 && o !== arrow.id) return o;
+  }
+  return -1;
+}
+// </GEN>
+
+// ============================== Helpers ==============================
+const COLORS = ['#38BDF8','#34D399','#FBBF24','#F472B6','#A78BFA','#FB923C'];
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+let lang = store.get('ae_lang', null);
+if (!LANGS[lang]) lang = detectLang();
+let level = store.get('ae_level', 1);
+let bestLevel = store.get('ae_best', 1);
+let muted = store.get('ae_mute', false);
+const t = k => (I18N[lang] && I18N[lang][k]) || I18N.en[k];
+
+function todayNum(){ const d = new Date(); return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000); }
+function dailyState(){
+  const st = store.get('ae_daily', { day: -1, done: false });
+  const sk = store.get('ae_streak', { last: -1, n: 0 });
+  const tn = todayNum();
+  const streakAlive = sk.last === tn || sk.last === tn - 1;
+  return { doneToday: st.day === tn && st.done, streak: streakAlive ? sk.n : 0 };
+}
+function markDailyDone(){
+  const tn = todayNum();
+  const sk = store.get('ae_streak', { last: -1, n: 0 });
+  if (sk.last !== tn){
+    const n = sk.last === tn - 1 ? sk.n + 1 : 1;
+    store.set('ae_streak', { last: tn, n });
+  }
+  store.set('ae_daily', { day: tn, done: true });
+}
+
+// ============================== Sound (WebAudio, no files) ==============================
+let actx = null;
+function ac(){
+  if (!actx){ try{ actx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+  if (actx && actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function tone(freq, dur, type, vol, slideTo, delay){
+  if (muted) return;
+  const c = ac(); if (!c) return;
+  const t0 = c.currentTime + (delay || 0);
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol || 0.12, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(t0); o.stop(t0 + dur + 0.03);
+}
+const sfx = {
+  click(){ tone(620, .06, 'sine', .08); },
+  slide(){ tone(360, .24, 'sine', .11, 820); },
+  bad(){ tone(170, .28, 'square', .06, 80); },
+  hint(){ tone(880, .09, 'sine', .08); tone(1175, .12, 'sine', .08, null, .09); },
+  win(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .28, 'triangle', .13, null, i * .1)); },
+  fail(){ tone(330, .22, 'triangle', .1, 200); tone(220, .3, 'triangle', .1, 120, .18); }
+};
+
+// ============================== Game state ==============================
+let game = null;   // {size, arrows, occ, lives, hints, mode, flashes, pulse, over, lost}
+let layout = { cell: 40, ox: 0, oy: 0, w: 0, h: 0 };
+let particles = [];
+
+function startGame(mode, n){
+  let g;
+  if (mode === 'daily') g = generateLevel(1, { size: 8, maxLen: 6, seed: todayNum() * 31 + 7 });
+  else g = generateLevel(n);
+  game = { mode, size: g.size, arrows: g.arrows, occ: g.occ, lives: 3, hints: 3, flashes: [], pulse: null, over: false, lost: 0 };
+  particles = [];
+  if (mode === 'level'){ level = n; store.set('ae_level', level); }
+  doLayout();
+  updateHUD();
+}
+
+function doLayout(){
+  const r = $('stage').getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  layout.w = r.width; layout.h = r.height;
+  if (!game) return;
+  const pad = 14;
+  layout.cell = Math.floor(Math.min((r.width - pad * 2) / game.size, (r.height - pad * 2) / game.size));
+  layout.ox = Math.round((r.width - layout.cell * game.size) / 2);
+  layout.oy = Math.round((r.height - layout.cell * game.size) / 2);
+}
+window.addEventListener('resize', doLayout);
+
+function updateHUD(){
+  if (!game) return;
+  $('lvl').textContent = game.mode === 'daily' ? t('daily') : t('level') + ' ' + level;
+  $('hearts').textContent = '❤'.repeat(game.lives) + '♡'.repeat(3 - game.lives);
+  const left = game.arrows.filter(a => !a.removed).length;
+  $('left').textContent = t('left') + ': ' + left;
+  $('best').textContent = game.mode === 'daily' ? '' : '★ ' + bestLevel;
+  $('btnHint').textContent = t('hint') + ' (' + game.hints + ')';
+  $('btnRestart').textContent = t('restart');
+  document.documentElement.lang = lang;
+}
+
+function toast(msg, ms){
+  const el = $('toast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), ms || 1400);
+}
+
+function cellCenter(x, y){ return [layout.ox + (x + .5) * layout.cell, layout.oy + (y + .5) * layout.cell]; }
+
+// ============================== Drawing ==============================
+function pathPoints(a, extra){
+  const pts = a.cells.map(([x, y]) => [x, y]);
+  let [hx, hy] = a.cells[a.cells.length - 1];
+  for (let i = 0; i < extra; i++){ hx += a.dx; hy += a.dy; pts.push([hx, hy]); }
+  return pts;
+}
+function pointAt(pts, s){
+  const i = Math.max(0, Math.min(pts.length - 1, Math.floor(s)));
+  const f = Math.max(0, Math.min(1, s - i));
+  const p = pts[i], q = pts[Math.min(pts.length - 1, i + 1)];
+  return [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f];
+}
+function drawArrow(a, offset, color, alpha, jitter){
+  const n = a.cells.length;
+  const ray = rayOf(a, game.size).length;
+  const pts = pathPoints(a, ray + n + 3);
+  const start = offset, end = offset + (n - 1);
+  const poly = [pointAt(pts, start)];
+  for (let i = Math.floor(start) + 1; i < end; i++) poly.push(pts[i]);
+  poly.push(pointAt(pts, end));
+  const c = layout.cell;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  ctx.lineWidth = c * 0.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  poly.forEach(([x, y], i) => {
+    const px = layout.ox + (x + .5) * c + (jitter || 0), py = layout.oy + (y + .5) * c;
+    i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+  });
+  ctx.stroke();
+  const hp = poly[poly.length - 1], pp = poly[poly.length - 2];
+  let ddx = a.dx, ddy = a.dy;
+  if (pp){ const vx = hp[0] - pp[0], vy = hp[1] - pp[1]; const L = Math.hypot(vx, vy); if (L > 0.001){ ddx = vx / L; ddy = vy / L; } }
+  const hx = layout.ox + (hp[0] + .5) * c + (jitter || 0), hy = layout.oy + (hp[1] + .5) * c;
+  const len = c * 0.34, wid = c * 0.3;
+  ctx.beginPath();
+  ctx.moveTo(hx + ddx * len, hy + ddy * len);
+  ctx.lineTo(hx - ddx * len * 0.2 - ddy * wid, hy - ddy * len * 0.2 + ddx * wid);
+  ctx.lineTo(hx - ddx * len * 0.2 + ddy * wid, hy - ddy * len * 0.2 - ddx * wid);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function spawnConfetti(){
+  const now = performance.now();
+  for (let i = 0; i < 70; i++){
+    particles.push({
+      x: layout.w / 2 + (Math.random() - .5) * layout.w * .4, y: layout.h * .35,
+      vx: (Math.random() - .5) * 520, vy: -Math.random() * 520 - 120,
+      c: COLORS[i % COLORS.length], s: 4 + Math.random() * 5, t0: now, life: 1400 + Math.random() * 600
+    });
+  }
+}
+
+let lastT = performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (!game) return;
+  ctx.clearRect(0, 0, layout.w, layout.h);
+  const c = layout.cell;
+  ctx.fillStyle = 'rgba(148,163,184,.22)';
+  for (let y = 0; y < game.size; y++) for (let x = 0; x < game.size; x++){
+    const [px, py] = cellCenter(x, y);
+    ctx.beginPath(); ctx.arc(px, py, c * 0.045, 0, 7); ctx.fill();
+  }
+  for (const a of game.arrows){
+    if (a.removed || a.anim) continue;
+    let color = COLORS[a.color], jitter = 0;
+    const fl = game.flashes.find(f => f.id === a.id);
+    if (fl){
+      const k = (now - fl.t0) / fl.dur;
+      if (k >= 1) game.flashes = game.flashes.filter(f => f !== fl);
+      else { color = '#EF4444'; if (fl.shake) jitter = Math.sin(k * 28) * c * 0.08 * (1 - k); }
+    }
+    if (game.pulse && game.pulse.id === a.id){
+      const k = (now - game.pulse.t0) / game.pulse.dur;
+      if (k >= 1) game.pulse = null;
+      else {
+        ctx.save(); ctx.strokeStyle = '#F59E0B'; ctx.globalAlpha = .35 + .35 * Math.sin(k * 18);
+        ctx.lineWidth = c * 0.42; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath();
+        a.cells.forEach(([x, y], i) => { const [px, py] = cellCenter(x, y); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+        ctx.stroke(); ctx.restore();
+      }
+    }
+    drawArrow(a, 0, color, 1, jitter);
+  }
+  for (const a of game.arrows){
+    if (!a.anim) continue;
+    const k = (now - a.anim.t0) / a.anim.dur;
+    if (k >= 1){ a.anim = null; a.removed = true; onArrowGone(); continue; }
+    const ease = k * k * (3 - 2 * k) * 0.35 + k * 0.65;
+    const alpha = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+    drawArrow(a, ease * a.anim.total, COLORS[a.color], alpha, 0);
+  }
+  // confetti
+  if (particles.length){
+    for (const p of particles){
+      p.vy += 900 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const k = (now - p.t0) / p.life;
+      ctx.globalAlpha = Math.max(0, 1 - k);
+      ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, p.s, p.s * .6);
+    }
+    ctx.globalAlpha = 1;
+    particles = particles.filter(p => now - p.t0 < p.life);
+  }
+}
+requestAnimationFrame(frame);
+
+// ============================== Input ==============================
+cv.addEventListener('pointerdown', e => {
+  if (!game || game.over) return;
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left - layout.ox) / layout.cell);
+  const y = Math.floor((e.clientY - r.top - layout.oy) / layout.cell);
+  if (x < 0 || y < 0 || x >= game.size || y >= game.size) return;
+  const id = game.occ[y][x];
+  if (id === -1) return;
+  tap(game.arrows[id]);
+});
+
+function tap(a){
+  if (a.removed || a.anim) return;
+  const blocker = blockerOf(a, game.occ, game.size);
+  const now = performance.now();
+  game.pulse = null;
+  if (blocker === -1){
+    for (const [x, y] of a.cells) game.occ[y][x] = -1;
+    const ray = rayOf(a, game.size).length;
+    const total = ray + a.cells.length + 2;
+    a.anim = { t0: now, total, dur: Math.max(380, total * 55) };
+    sfx.slide();
+  } else {
+    game.lives--; game.lost++;
+    game.flashes.push({ id: a.id, t0: now, dur: 420, shake: true });
+    game.flashes.push({ id: blocker, t0: now, dur: 700, shake: false });
+    toast(t('blocked'));
+    sfx.bad();
+    if (navigator.vibrate) try{ navigator.vibrate(60); }catch(e){}
+    updateHUD();
+    if (game.lives <= 0){ game.over = true; setTimeout(showFail, 650); }
+  }
+}
+
+function onArrowGone(){
+  updateHUD();
+  if (!game.over && game.arrows.every(a => a.removed)){
+    game.over = true;
+    if (game.mode === 'level'){
+      if (level + 1 > bestLevel){ bestLevel = level + 1; store.set('ae_best', bestLevel); }
+      store.set('ae_level', level + 1);
+    } else {
+      markDailyDone();
+    }
+    spawnConfetti();
+    sfx.win();
+    setTimeout(showWin, 450);
+  }
+}
+
+// ============================== Buttons ==============================
+function giveHint(auto){
+  if (!game || game.over) return;
+  if (!auto && game.hints <= 0){ toast(t('nohint')); return; }
+  const free = game.arrows.filter(a => !a.removed && !a.anim && blockerOf(a, game.occ, game.size) === -1);
+  if (!free.length) return;
+  const a = free[Math.floor(Math.random() * free.length)];
+  if (!auto) game.hints--;
+  game.pulse = { id: a.id, t0: performance.now(), dur: auto ? 2600 : 1800 };
+  if (auto) toast(t('tapHint'), 2200);
+  sfx.hint();
+  updateHUD();
+}
+$('btnHint').onclick = () => giveHint(false);
+$('btnRestart').onclick = () => { sfx.click(); hideOverlay(); restartCurrent(); };
+$('btnHome').onclick = () => { sfx.click(); showHome(); };
+
+function restartCurrent(){
+  if (game && game.mode === 'daily') startGame('daily'); else startGame('level', level);
+}
+
+// ============================== Home ==============================
+function renderHome(){
+  const ds = dailyState();
+  $('hTag').textContent = t('tagline');
+  $('hPlay').textContent = t('playLevel') + ' ' + level;
+  $('hDaily').innerHTML = t('dailyBtn') + '<small>' + (ds.doneToday ? t('done') : t('today')) +
+    (ds.streak ? ' · 🔥 ' + ds.streak : '') + '</small>';
+  $('hSound').textContent = muted ? t('soundOff') : t('soundOn');
+  const sel = $('hLang');
+  if (!sel.options.length) for (const k in LANGS){ const o = document.createElement('option'); o.value = k; o.textContent = LANGS[k]; sel.appendChild(o); }
+  sel.value = lang;
+  $('hHow').textContent = '? ' + t('how');
+}
+function showHome(){ renderHome(); $('home').classList.remove('hide'); }
+function hideHome(){ $('home').classList.add('hide'); }
+
+$('hPlay').onclick = () => { sfx.click(); hideHome(); startGame('level', level); maybeTutorial(); };
+$('hDaily').onclick = () => { sfx.click(); hideHome(); startGame('daily'); };
+$('hSound').onclick = () => { muted = !muted; store.set('ae_mute', muted); renderHome(); sfx.click(); };
+$('hLang').onchange = e => { lang = e.target.value; store.set('ae_lang', lang); renderHome(); updateHUD(); sfx.click(); };
+$('hHow').onclick = () => { sfx.click(); showHow(); };
+
+// ============================== Overlay ==============================
+function showOverlay(html){ $('card').innerHTML = html; $('overlay').classList.add('show'); }
+function hideOverlay(){ $('overlay').classList.remove('show'); }
+
+function showHow(){
+  showOverlay(`<h2>${t('how')}</h2><p>${t('howto').replace(/\n/g, '<br>')}</p>
+    <button class="primary" id="ovBtn">${t('ok')}</button>`);
+  $('ovBtn').onclick = () => { sfx.click(); hideOverlay(); };
+}
+function showWin(){
+  const stars = game.lost === 0 ? '★★★' : game.lost === 1 ? '★★☆' : '★☆☆';
+  if (game.mode === 'daily'){
+    const ds = dailyState();
+    showOverlay(`<div class="stars">${stars}</div><h2>${t('dailyWin')}</h2>
+      <div class="streak">🔥 ${t('streak')}: ${ds.streak} ${t('days')}</div>
+      <button class="primary" id="ovBtn">${t('back')}</button>`);
+    $('ovBtn').onclick = () => { sfx.click(); hideOverlay(); showHome(); };
+  } else {
+    showOverlay(`<div class="stars">${stars}</div><h2>${t('win')}</h2><p> </p>
+      <button class="primary" id="ovBtn">${t('next')}</button>`);
+    $('ovBtn').onclick = () => { sfx.click(); hideOverlay(); startGame('level', level + 1); };
+  }
+}
+function showFail(){
+  sfx.fail();
+  showOverlay(`<h2>${t('fail')}</h2><p> </p><button class="primary" id="ovBtn">${t('retry')}</button>`);
+  $('ovBtn').onclick = () => { sfx.click(); hideOverlay(); restartCurrent(); };
+}
+
+// first-ever level: show rules once, then point at a free arrow
+function maybeTutorial(){
+  if (store.get('ae_seen', false) || level !== 1) return;
+  store.set('ae_seen', true);
+  showHow();
+  const prev = $('ovBtn').onclick;
+  $('ovBtn').onclick = () => { prev(); setTimeout(() => giveHint(true), 350); };
+}
+
+// ============================== Home-screen icon ==============================
+(function setIcon(){
+  try{
+    const c = document.createElement('canvas'); c.width = c.height = 180;
+    const g = c.getContext('2d');
+    g.fillStyle = '#0F172A'; g.fillRect(0, 0, 180, 180);
+    g.strokeStyle = '#22C55E'; g.fillStyle = '#22C55E'; g.lineWidth = 18; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(40, 120); g.lineTo(40, 70); g.lineTo(115, 70); g.stroke();
+    g.beginPath(); g.moveTo(112, 40); g.lineTo(150, 70); g.lineTo(112, 100); g.closePath(); g.fill();
+    const l = document.createElement('link'); l.rel = 'apple-touch-icon'; l.href = c.toDataURL('image/png');
+    document.head.appendChild(l);
+    const l2 = document.createElement('link'); l2.rel = 'icon'; l2.href = l.href; document.head.appendChild(l2);
+  }catch(e){}
+})();
+
+// ============================== Boot ==============================
+startGame('level', level);
+showHome();
+</script>
+</body>
+</html>
