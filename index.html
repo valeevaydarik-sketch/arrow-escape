@@ -28,8 +28,8 @@
     #app{margin-top:max(0px,calc((100dvh - 932px)/2));border-radius:36px;box-shadow:0 0 0 8px rgba(17,24,39,.55),0 20px 60px rgba(0,0,0,.45)}
   }
   header{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 6px}
-  .lvl{font-size:22px;font-weight:700;letter-spacing:.2px}
-  .hearts{font-size:22px;letter-spacing:4px;min-width:90px;text-align:right;color:var(--red)}
+  .lvl{font-size:21px;font-weight:700;letter-spacing:.2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px}
+  .hearts{font-size:22px;letter-spacing:4px;min-width:90px;flex:none;text-align:right;color:var(--red)}
   .sub{display:flex;justify-content:space-between;padding:0 18px 4px;color:var(--muted);font-size:14px}
   #stage{flex:1;position:relative;margin:6px 0}
   canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
@@ -50,6 +50,7 @@
   .card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:26px 24px;width:82%;text-align:center}
   .card h2{margin:0 0 8px;font-size:26px}
   .card p{margin:0 0 18px;color:var(--muted);font-size:15px;line-height:1.45}
+  .card button{display:block;width:100%}
   .card button + button{margin-top:10px}
   .stars{font-size:34px;letter-spacing:6px;margin-bottom:10px;color:var(--amber)}
   .streak{color:var(--amber);font-weight:700;margin-bottom:14px}
@@ -71,6 +72,17 @@
     text-align:center;text-align-last:center}
   select option{background:var(--panel);color:var(--text)}
   #hDaily small{display:block;font-weight:500;color:var(--muted);font-size:13px;margin-top:3px}
+  #home .modes{display:flex;gap:10px;width:100%}
+  #home .modes button{padding:14px 6px;line-height:1.25;min-width:0}
+  #home .modes button b{display:block;font-size:18px}
+  #home .modes button small{display:block;font-weight:600;font-size:12px;margin-top:4px;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  button.blue{background:var(--blue);border-color:var(--blue);color:#fff}
+  button.ghost{background:transparent;border-style:dashed;color:var(--muted);font-size:13px;padding:10px}
+  .card{max-height:90%;overflow-y:auto}
+  .card h3{margin:16px 0 8px;font-size:14px;color:var(--muted);font-weight:600}
+  textarea{font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;color:var(--text);background:var(--bg);border:1px solid var(--line);
+    border-radius:10px;padding:8px;width:100%;height:76px;resize:none;user-select:text;-webkit-user-select:text;margin:0 0 10px;display:block}
+  @media (max-height:720px){ #home svg{width:70px;height:70px} #home h1{font-size:30px} #home{gap:9px} #home .tag{margin-bottom:6px} }
 </style>
 </head>
 <body>
@@ -97,7 +109,10 @@
     <h1>Arrow Escape</h1>
     <p class="tag" id="hTag"></p>
     <p class="coins" id="hCoins"></p>
-    <button class="primary big" id="hPlay"></button>
+    <div class="modes">
+      <button class="primary" id="hPlay"></button>
+      <button class="blue" id="hPlay3"></button>
+    </div>
     <button class="big" id="hDaily"></button>
     <div class="row">
       <button id="hSound"></button>
@@ -107,6 +122,7 @@
       <select id="hLang" aria-label="Language"></select>
       <button id="hHow"></button>
     </div>
+    <button class="ghost big" id="hSave"></button>
   </div>
 
   <div id="overlay"><div class="card" id="card"></div></div>
@@ -123,7 +139,12 @@ const I18N = {
     tagline:'Free every arrow. Mind the order.', how:'How to play',
     soundOn:'Sound: on', soundOff:'Sound: off', done:'Done today ✓', today:'New puzzle every day',
     dailyWin:'Daily solved!', streak:'Streak', days:'days', back:'Back home', tapHint:'This one can slide out',
-    themeAuto:'Theme: auto', themeDark:'Theme: dark', themeLight:'Theme: light', revive:'Continue · +1 ❤'
+    themeAuto:'Theme: auto', themeDark:'Theme: dark', themeLight:'Theme: light', revive:'Continue · +1 ❤',
+    flat:'Flat', how3:'Drag to rotate the shape.\nTap an arrow to slide it along the surface – it can go around edges.\nIf another arrow is in the way, you lose a heart.',
+    rotateHint:'Drag to rotate', saveBtn:'💾 Progress code', saveTitle:'Save & transfer', saveHint:'Copy this code to back up your progress or move it to another device.',
+    copy:'Copy', copied:'Copied ✓', importHint:'Paste a code to restore progress', importBtn:'Restore', importOk:'Progress restored ✓',
+    importBad:'Invalid code', close:'Close', sh_cube3:'Cube', sh_stairs:'Stairs', sh_cross:'Cross', sh_cube4:'Big cube',
+    sh_lblock:'L-block', sh_hammer:'Hammer', sh_pyramid:'Pyramid', sh_arch:'Arch', sh_dumbbell:'Dumbbell', sh_cube5:'Giant cube'
   },
   es: {
     level:'Nivel', left:'Flechas restantes', hint:'Pista', restart:'Reiniciar', daily:'Diario', dailyBtn:'Reto diario',
@@ -133,7 +154,13 @@ const I18N = {
     tagline:'Libera todas las flechas. Cuida el orden.', how:'Cómo jugar',
     soundOn:'Sonido: sí', soundOff:'Sonido: no', done:'Hecho hoy ✓', today:'Un puzzle nuevo cada día',
     dailyWin:'¡Reto diario resuelto!', streak:'Racha', days:'días', back:'Inicio', tapHint:'Esta flecha puede salir',
-    themeAuto:'Tema: auto', themeDark:'Tema: oscuro', themeLight:'Tema: claro', revive:'Seguir · +1 ❤'
+    themeAuto:'Tema: auto', themeDark:'Tema: oscuro', themeLight:'Tema: claro', revive:'Seguir · +1 ❤',
+    flat:'Plano', how3:'Arrastra para girar la figura.\nToca una flecha para deslizarla por la superficie; puede rodear las aristas.\nSi otra flecha bloquea el camino, pierdes un corazón.',
+    rotateHint:'Arrastra para girar', saveBtn:'💾 Código de progreso', saveTitle:'Guardar y transferir', saveHint:'Copia este código para respaldar tu progreso o llevarlo a otro dispositivo.',
+    copy:'Copiar', copied:'Copiado ✓', importHint:'Pega un código para recuperar el progreso', importBtn:'Restaurar',
+    importOk:'Progreso restaurado ✓', importBad:'Código no válido', close:'Cerrar', sh_cube3:'Cubo', sh_stairs:'Escaleras',
+    sh_cross:'Cruz', sh_cube4:'Cubo grande', sh_lblock:'Bloque en L', sh_hammer:'Martillo', sh_pyramid:'Pirámide', sh_arch:'Arco',
+    sh_dumbbell:'Pesa', sh_cube5:'Cubo gigante'
   },
   pt: {
     level:'Nível', left:'Setas restantes', hint:'Dica', restart:'Reiniciar', daily:'Diário', dailyBtn:'Desafio diário',
@@ -143,7 +170,13 @@ const I18N = {
     tagline:'Liberte todas as setas. Atenção à ordem.', how:'Como jogar',
     soundOn:'Som: ligado', soundOff:'Som: desligado', done:'Feito hoje ✓', today:'Um quebra-cabeça novo por dia',
     dailyWin:'Desafio diário concluído!', streak:'Sequência', days:'dias', back:'Início', tapHint:'Esta seta pode sair',
-    themeAuto:'Tema: auto', themeDark:'Tema: escuro', themeLight:'Tema: claro', revive:'Continuar · +1 ❤'
+    themeAuto:'Tema: auto', themeDark:'Tema: escuro', themeLight:'Tema: claro', revive:'Continuar · +1 ❤',
+    flat:'Plano', how3:'Arraste para girar a figura.\nToque em uma seta para deslizá-la pela superfície; ela pode contornar as arestas.\nSe outra seta estiver no caminho, você perde um coração.',
+    rotateHint:'Arraste para girar', saveBtn:'💾 Código de progresso', saveTitle:'Salvar e transferir', saveHint:'Copie este código para fazer backup do progresso ou levá-lo a outro dispositivo.',
+    copy:'Copiar', copied:'Copiado ✓', importHint:'Cole um código para restaurar o progresso', importBtn:'Restaurar',
+    importOk:'Progresso restaurado ✓', importBad:'Código inválido', close:'Fechar', sh_cube3:'Cubo', sh_stairs:'Escada',
+    sh_cross:'Cruz', sh_cube4:'Cubo grande', sh_lblock:'Bloco em L', sh_hammer:'Martelo', sh_pyramid:'Pirâmide', sh_arch:'Arco',
+    sh_dumbbell:'Haltere', sh_cube5:'Cubo gigante'
   },
   id: {
     level:'Level', left:'Sisa panah', hint:'Petunjuk', restart:'Ulangi', daily:'Harian', dailyBtn:'Tantangan harian',
@@ -153,7 +186,12 @@ const I18N = {
     tagline:'Bebaskan semua panah. Perhatikan urutannya.', how:'Cara bermain',
     soundOn:'Suara: hidup', soundOff:'Suara: mati', done:'Selesai hari ini ✓', today:'Teka-teki baru setiap hari',
     dailyWin:'Tantangan harian selesai!', streak:'Beruntun', days:'hari', back:'Beranda', tapHint:'Panah ini bisa keluar',
-    themeAuto:'Tema: otomatis', themeDark:'Tema: gelap', themeLight:'Tema: terang', revive:'Lanjut · +1 ❤'
+    themeAuto:'Tema: otomatis', themeDark:'Tema: gelap', themeLight:'Tema: terang', revive:'Lanjut · +1 ❤',
+    flat:'Datar', how3:'Geser untuk memutar bentuk.\nKetuk panah untuk menggesernya di permukaan; panah bisa melewati sudut.\nJika ada panah lain yang menghalangi, kamu kehilangan satu hati.',
+    rotateHint:'Geser untuk memutar', saveBtn:'💾 Kode progres', saveTitle:'Simpan & pindahkan', saveHint:'Salin kode ini untuk mencadangkan progres atau memindahkannya ke perangkat lain.',
+    copy:'Salin', copied:'Tersalin ✓', importHint:'Tempel kode untuk memulihkan progres', importBtn:'Pulihkan', importOk:'Progres dipulihkan ✓',
+    importBad:'Kode tidak valid', close:'Tutup', sh_cube3:'Kubus', sh_stairs:'Tangga', sh_cross:'Salib', sh_cube4:'Kubus besar',
+    sh_lblock:'Balok L', sh_hammer:'Palu', sh_pyramid:'Piramida', sh_arch:'Lengkung', sh_dumbbell:'Barbel', sh_cube5:'Kubus raksasa'
   },
   tr: {
     level:'Seviye', left:'Kalan ok', hint:'İpucu', restart:'Yeniden', daily:'Günlük', dailyBtn:'Günlük meydan okuma',
@@ -163,7 +201,13 @@ const I18N = {
     tagline:'Tüm okları kurtar. Sıraya dikkat.', how:'Nasıl oynanır',
     soundOn:'Ses: açık', soundOff:'Ses: kapalı', done:'Bugün tamam ✓', today:'Her gün yeni bulmaca',
     dailyWin:'Günlük görev tamam!', streak:'Seri', days:'gün', back:'Ana sayfa', tapHint:'Bu ok çıkabilir',
-    themeAuto:'Tema: oto', themeDark:'Tema: koyu', themeLight:'Tema: açık', revive:'Devam · +1 ❤'
+    themeAuto:'Tema: oto', themeDark:'Tema: koyu', themeLight:'Tema: açık', revive:'Devam · +1 ❤',
+    flat:'Düz', how3:'Şekli döndürmek için sürükle.\nBir oka dokun, yüzey boyunca kayar; kenarları aşabilir.\nYolunda başka bir ok varsa bir kalp kaybedersin.',
+    rotateHint:'Döndürmek için sürükle', saveBtn:'💾 İlerleme kodu', saveTitle:'Kaydet ve aktar', saveHint:'İlerlemeni yedeklemek veya başka bir cihaza taşımak için bu kodu kopyala.',
+    copy:'Kopyala', copied:'Kopyalandı ✓', importHint:'İlerlemeyi geri yüklemek için kodu yapıştır', importBtn:'Geri yükle',
+    importOk:'İlerleme geri yüklendi ✓', importBad:'Geçersiz kod', close:'Kapat', sh_cube3:'Küp', sh_stairs:'Merdiven',
+    sh_cross:'Haç', sh_cube4:'Büyük küp', sh_lblock:'L blok', sh_hammer:'Çekiç', sh_pyramid:'Piramit', sh_arch:'Kemer',
+    sh_dumbbell:'Dambıl', sh_cube5:'Dev küp'
   },
   de: {
     level:'Level', left:'Pfeile übrig', hint:'Tipp', restart:'Neustart', daily:'Täglich', dailyBtn:'Tägliche Aufgabe',
@@ -173,7 +217,13 @@ const I18N = {
     tagline:'Befreie alle Pfeile. Achte auf die Reihenfolge.', how:'Anleitung',
     soundOn:'Ton: an', soundOff:'Ton: aus', done:'Heute erledigt ✓', today:'Jeden Tag ein neues Rätsel',
     dailyWin:'Tagesaufgabe gelöst!', streak:'Serie', days:'Tage', back:'Zum Start', tapHint:'Dieser Pfeil kann raus',
-    themeAuto:'Design: Auto', themeDark:'Design: Dunkel', themeLight:'Design: Hell', revive:'Weiter · +1 ❤'
+    themeAuto:'Design: Auto', themeDark:'Design: Dunkel', themeLight:'Design: Hell', revive:'Weiter · +1 ❤',
+    flat:'Flach', how3:'Ziehe, um die Form zu drehen.\nTippe auf einen Pfeil, damit er über die Oberfläche gleitet – auch um Kanten herum.\nSteht ein anderer Pfeil im Weg, verlierst du ein Herz.',
+    rotateHint:'Zum Drehen ziehen', saveBtn:'💾 Fortschrittscode', saveTitle:'Sichern & übertragen', saveHint:'Kopiere diesen Code, um deinen Fortschritt zu sichern oder auf ein anderes Gerät zu übertragen.',
+    copy:'Kopieren', copied:'Kopiert ✓', importHint:'Code einfügen, um den Fortschritt wiederherzustellen', importBtn:'Wiederherstellen',
+    importOk:'Fortschritt wiederhergestellt ✓', importBad:'Ungültiger Code', close:'Schließen', sh_cube3:'Würfel', sh_stairs:'Treppe',
+    sh_cross:'Kreuz', sh_cube4:'Großer Würfel', sh_lblock:'L-Block', sh_hammer:'Hammer', sh_pyramid:'Pyramide', sh_arch:'Bogen',
+    sh_dumbbell:'Hantel', sh_cube5:'Riesenwürfel'
   },
   fr: {
     level:'Niveau', left:'Flèches restantes', hint:'Indice', restart:'Recommencer', daily:'Quotidien', dailyBtn:'Défi du jour',
@@ -183,7 +233,13 @@ const I18N = {
     tagline:'Libère toutes les flèches. Attention à l\'ordre.', how:'Comment jouer',
     soundOn:'Son : activé', soundOff:'Son : coupé', done:'Fait aujourd\'hui ✓', today:'Un nouveau puzzle chaque jour',
     dailyWin:'Défi du jour réussi !', streak:'Série', days:'jours', back:'Accueil', tapHint:'Cette flèche peut sortir',
-    themeAuto:'Thème : auto', themeDark:'Thème : sombre', themeLight:'Thème : clair', revive:'Continuer · +1 ❤'
+    themeAuto:'Thème : auto', themeDark:'Thème : sombre', themeLight:'Thème : clair', revive:'Continuer · +1 ❤',
+    flat:'Plat', how3:'Fais glisser pour tourner la forme.\nTouche une flèche pour la faire glisser sur la surface ; elle peut contourner les arêtes.\nSi une autre flèche bloque le chemin, tu perds un cœur.',
+    rotateHint:'Glisse pour tourner', saveBtn:'💾 Code de progression', saveTitle:'Sauvegarder et transférer', saveHint:'Copie ce code pour sauvegarder ta progression ou la transférer sur un autre appareil.',
+    copy:'Copier', copied:'Copié ✓', importHint:'Colle un code pour restaurer la progression', importBtn:'Restaurer',
+    importOk:'Progression restaurée ✓', importBad:'Code invalide', close:'Fermer', sh_cube3:'Cube', sh_stairs:'Escalier',
+    sh_cross:'Croix', sh_cube4:'Grand cube', sh_lblock:'Bloc en L', sh_hammer:'Marteau', sh_pyramid:'Pyramide', sh_arch:'Arche',
+    sh_dumbbell:'Haltère', sh_cube5:'Cube géant'
   },
   hi: {
     level:'लेवल', left:'बचे तीर', hint:'संकेत', restart:'फिर से', daily:'दैनिक', dailyBtn:'आज की चुनौती',
@@ -193,7 +249,13 @@ const I18N = {
     tagline:'सभी तीर आज़ाद करें। क्रम का ध्यान रखें।', how:'कैसे खेलें',
     soundOn:'आवाज़: चालू', soundOff:'आवाज़: बंद', done:'आज पूरा ✓', today:'हर दिन नई पहेली',
     dailyWin:'आज की चुनौती पूरी!', streak:'लगातार', days:'दिन', back:'होम', tapHint:'यह तीर बाहर निकल सकता है',
-    themeAuto:'थीम: ऑटो', themeDark:'थीम: डार्क', themeLight:'थीम: लाइट', revive:'जारी रखें · +1 ❤'
+    themeAuto:'थीम: ऑटो', themeDark:'थीम: डार्क', themeLight:'थीम: लाइट', revive:'जारी रखें · +1 ❤',
+    flat:'फ़्लैट', how3:'आकृति को घुमाने के लिए खींचें।\nतीर पर टैप करें, वह सतह पर खिसकेगा; किनारों के ऊपर से भी जा सकता है।\nअगर रास्ते में दूसरा तीर हो, तो एक दिल घट जाएगा।',
+    rotateHint:'घुमाने के लिए खींचें', saveBtn:'💾 प्रगति कोड', saveTitle:'सेव और ट्रांसफ़र', saveHint:'अपनी प्रगति का बैकअप लेने या दूसरे डिवाइस पर ले जाने के लिए यह कोड कॉपी करें।',
+    copy:'कॉपी', copied:'कॉपी हुआ ✓', importHint:'प्रगति वापस पाने के लिए कोड पेस्ट करें', importBtn:'रिस्टोर करें',
+    importOk:'प्रगति वापस आ गई ✓', importBad:'गलत कोड', close:'बंद करें', sh_cube3:'क्यूब', sh_stairs:'सीढ़ियाँ', sh_cross:'क्रॉस',
+    sh_cube4:'बड़ा क्यूब', sh_lblock:'L-ब्लॉक', sh_hammer:'हथौड़ा', sh_pyramid:'पिरामिड', sh_arch:'मेहराब', sh_dumbbell:'डंबल',
+    sh_cube5:'विशाल क्यूब'
   },
   ru: {
     level:'Уровень', left:'Осталось стрелок', hint:'Подсказка', restart:'Заново', daily:'Задание дня', dailyBtn:'Задание дня',
@@ -203,7 +265,13 @@ const I18N = {
     tagline:'Освободи все стрелки. Важен порядок.', how:'Как играть',
     soundOn:'Звук: вкл', soundOff:'Звук: выкл', done:'Сегодня пройдено ✓', today:'Новая головоломка каждый день',
     dailyWin:'Задание дня пройдено!', streak:'Серия', days:'дн.', back:'Домой', tapHint:'Эта стрелка может выехать',
-    themeAuto:'Тема: авто', themeDark:'Тема: тёмная', themeLight:'Тема: светлая', revive:'Продолжить · +1 ❤'
+    themeAuto:'Тема: авто', themeDark:'Тема: тёмная', themeLight:'Тема: светлая', revive:'Продолжить · +1 ❤',
+    flat:'Плоский', how3:'Тяни, чтобы вращать фигуру.\nНажми на стрелку, и она поедет по поверхности, огибая рёбра.\nЕсли на пути другая стрелка, теряешь сердце.',
+    rotateHint:'Тяни, чтобы вращать', saveBtn:'💾 Код прогресса', saveTitle:'Сохранить и перенести', saveHint:'Скопируй этот код, чтобы сохранить прогресс или перенести его на другое устройство.',
+    copy:'Копировать', copied:'Скопировано ✓', importHint:'Вставь код, чтобы восстановить прогресс', importBtn:'Восстановить',
+    importOk:'Прогресс восстановлен ✓', importBad:'Неверный код', close:'Закрыть', sh_cube3:'Куб', sh_stairs:'Лестница',
+    sh_cross:'Крест', sh_cube4:'Большой куб', sh_lblock:'Г-блок', sh_hammer:'Молоток', sh_pyramid:'Пирамида', sh_arch:'Арка',
+    sh_dumbbell:'Гантель', sh_cube5:'Гигантский куб'
   }
 };
 const LANGS = { en:'English', es:'Español', pt:'Português', id:'Bahasa Indonesia', tr:'Türkçe', de:'Deutsch', fr:'Français', hi:'हिन्दी', ru:'Русский' };
@@ -347,6 +415,170 @@ function blockerOf(arrow, occ, size){
 }
 // </GEN>
 
+// <GEN3>
+// 3D mode: shapes are sets of unit voxels (y is up). The playable board is the voxel SURFACE:
+// every exposed voxel face is one cell. Walking over an edge (convex or concave) keeps going.
+const AX = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]; // +x -x +y -y +z -z ; opposite = i^1
+function vbox(x0, x1, y0, y1, z0, z1){
+  const o = [];
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) o.push([x, y, z]);
+  return o;
+}
+// Ordered roughly from easy to hard. R = reach: how many surface cells ahead must be clear.
+const SHAPES = [
+  { id:'cube3',    vox: () => vbox(0,2,0,2,0,2) },
+  { id:'stairs',   vox: () => { let o = []; for (let x = 0; x < 4; x++) o = o.concat(vbox(x,x,0,x,0,2)); return o; } },
+  { id:'cross',    vox: () => { const o = [[0,0,0]]; for (let k = 1; k <= 2; k++) for (const a of AX) o.push([a[0]*k, a[1]*k, a[2]*k]); return o; } },
+  { id:'cube4',    vox: () => vbox(0,3,0,3,0,3) },
+  { id:'lblock',   vox: () => vbox(0,3,0,1,0,1).concat(vbox(0,1,2,3,0,1)) },
+  { id:'hammer',   vox: () => vbox(2,3,0,3,0,1).concat(vbox(0,5,4,5,0,1)) },
+  { id:'pyramid',  vox: () => vbox(0,4,0,0,0,4).concat(vbox(1,3,1,1,1,3), vbox(2,2,2,2,2,2)) },
+  { id:'arch',     vox: () => vbox(0,3,0,1,0,3).filter(v => !(v[0] >= 1 && v[0] <= 2 && v[2] >= 1 && v[2] <= 2)) },
+  { id:'dumbbell', vox: () => vbox(0,2,0,2,0,2).concat(vbox(3,4,1,1,1,1), vbox(5,7,0,2,0,2)) },
+  { id:'cube5',    vox: () => vbox(0,4,0,4,0,4) }
+];
+
+const _surfCache = {};
+function surfaceOf(si){
+  if (_surfCache[si]) return _surfCache[si];
+  const vox = SHAPES[si].vox();
+  const solid = new Set(vox.map(v => v.join(',')));
+  const has = (x, y, z) => solid.has(x + ',' + y + ',' + z);
+  const cells = [], idx = new Map();
+  for (const v of vox) for (let f = 0; f < 6; f++){
+    const n = AX[f];
+    if (!has(v[0] + n[0], v[1] + n[1], v[2] + n[2])){ idx.set(v.join(',') + '|' + f, cells.length); cells.push({ v, f }); }
+  }
+  const nb = cells.map(c => {
+    const arr = new Array(6).fill(null);
+    const n = AX[c.f], v = c.v;
+    for (let d = 0; d < 6; d++){
+      if ((d >> 1) === (c.f >> 1)) continue;             // not tangent
+      const t = AX[d];
+      const wx = v[0] + t[0], wy = v[1] + t[1], wz = v[2] + t[2];
+      if (has(wx, wy, wz)){
+        if (has(wx + n[0], wy + n[1], wz + n[2])){        // concave edge: climb the wall
+          arr[d] = { to: idx.get((wx + n[0]) + ',' + (wy + n[1]) + ',' + (wz + n[2]) + '|' + (d ^ 1)), d: c.f };
+        } else {                                          // flat: next cell on the same plane
+          arr[d] = { to: idx.get(wx + ',' + wy + ',' + wz + '|' + c.f), d: d };
+        }
+      } else {                                            // convex edge: wrap around it
+        arr[d] = { to: idx.get(v.join(',') + '|' + d), d: c.f ^ 1 };
+      }
+    }
+    return arr;
+  });
+  // centre + radius for the camera
+  let mn = [1e9,1e9,1e9], mx = [-1e9,-1e9,-1e9];
+  for (const v of vox) for (let k = 0; k < 3; k++){ mn[k] = Math.min(mn[k], v[k] - .5); mx[k] = Math.max(mx[k], v[k] + .5); }
+  const center = [0,1,2].map(k => (mn[k] + mx[k]) / 2);
+  let radius = 0;
+  for (const v of vox) for (const sx of [-.5,.5]) for (const sy of [-.5,.5]) for (const sz of [-.5,.5])
+    radius = Math.max(radius, Math.hypot(v[0] + sx - center[0], v[1] + sy - center[1], v[2] + sz - center[2]));
+  return (_surfCache[si] = { si, cells, nb, center, radius });
+}
+
+function levelParams3(level){
+  const N = SHAPES.length, si = (level - 1) % N, tier = Math.floor((level - 1) / N);
+  const L = level - 1;
+  const R = L < 8 ? 3 : L < 18 ? 4 : L < 32 ? 5 : 6;                 // how far ahead an arrow must be clear
+  const maxLen = Math.min(6, 3 + Math.floor(L / 8));                 // longer arrows later
+  let density = Math.min(0.24, 0.115 + L * 0.0042);                  // arrows per surface cell
+  let target = Math.min(9, 2.8 + L * 0.11);
+  if (level % 6 === 0 && level > 1){ density *= 0.7; target = Math.max(2.5, target * 0.65); }
+  return { si, tier, maxLen, R, density, target };
+}
+
+function ray3(S, a, R){
+  const out = []; let c = a.cells[a.cells.length - 1], d = a.hd;
+  for (let i = 0; i < R; i++){ const nx = S.nb[c][d]; out.push(nx.to); c = nx.to; d = nx.d; }
+  return out;
+}
+function blocker3(S, a, occ, R){
+  for (const c of ray3(S, a, R)){ const o = occ[c]; if (o !== -1 && o !== a.id) return o; }
+  return -1;
+}
+
+// Reverse-order construction (same idea as the flat generator): each new arrow's exit path
+// must avoid every already placed cell, so removing arrows in reverse order always works.
+function gen3One(S, seed, maxLen, R, cap){
+  const rng = mulberry32(seed), C = S.cells.length;
+  const occ = new Array(C).fill(-1), arrows = [];
+  const attempts = C * 45;
+  for (let at = 0; at < attempts && arrows.length < cap; at++){
+    const s = Math.floor(rng() * C);
+    if (occ[s] !== -1) continue;
+    const target = 2 + Math.floor(rng() * (maxLen - 1));
+    const cells = [s], dirs = [], used = new Set([s]);
+    let c = s, lastD = -1;
+    while (cells.length < target){
+      const opts = [];
+      for (let d = 0; d < 6; d++){ const nx = S.nb[c][d]; if (nx && occ[nx.to] === -1 && !used.has(nx.to)) opts.push(d); }
+      if (!opts.length) break;
+      for (let i = opts.length - 1; i > 0; i--){ const j = Math.floor(rng() * (i + 1)); const tmp = opts[i]; opts[i] = opts[j]; opts[j] = tmp; }
+      let d = opts[0];
+      if (lastD !== -1 && rng() < 0.5 && opts.indexOf(lastD) !== -1) d = lastD;
+      const nx = S.nb[c][d];
+      dirs.push(d); cells.push(nx.to); used.add(nx.to); lastD = nx.d; c = nx.to;
+    }
+    if (cells.length < 2) continue;
+    let ok = true, rc = c, rd = lastD;
+    for (let i = 0; i < R; i++){
+      const nx = S.nb[rc][rd];
+      if (occ[nx.to] !== -1 || used.has(nx.to)){ ok = false; break; }
+      rc = nx.to; rd = nx.d;
+    }
+    if (!ok) continue;
+    const id = arrows.length;
+    for (const x of cells) occ[x] = id;
+    arrows.push({ id, cells, dirs, hd: lastD, color: Math.floor(rng() * 6), removed: false });
+  }
+  if (arrows.length < Math.max(5, Math.floor(cap * 0.8))) return null;
+  return { arrows, occ };
+}
+
+function boardStats3(S, g, R){
+  const occ = g.occ.slice(), rem = new Array(g.arrows.length).fill(false);
+  let firstFree = 0;
+  for (const a of g.arrows) if (blocker3(S, a, occ, R) === -1) firstFree++;
+  let depth = 0, removed = 0;
+  while (removed < g.arrows.length){
+    const wave = [];
+    for (const a of g.arrows) if (!rem[a.id] && blocker3(S, a, occ, R) === -1) wave.push(a);
+    if (!wave.length) break;
+    depth++;
+    for (const a of wave){ rem[a.id] = true; removed++; for (const c of a.cells) occ[c] = -1; }
+  }
+  return { depth, freeRatio: firstFree / g.arrows.length, solvable: removed === g.arrows.length, arrows: g.arrows.length };
+}
+
+function generateLevel3(level, opts){
+  const lp = levelParams3(level);
+  const si = opts && opts.si != null ? opts.si : lp.si;
+  const S = surfaceOf(si);
+  const maxLen = (opts && opts.maxLen) || lp.maxLen;
+  const target = opts && opts.target != null ? opts.target : lp.target;
+  const cap = Math.max(6, Math.round(S.cells.length * lp.density));
+  const baseSeed = level * 6203 + si * 131 + 29;
+  for (let R = (opts && opts.R) || lp.R; R >= 2; R--){
+    const cands = [];
+    for (let salt = 0; salt < 40 && cands.length < 12; salt++){
+      const b = gen3One(S, baseSeed + salt * 104729, maxLen, R, cap);
+      if (b){
+        b.stats = boardStats3(S, b, R);
+        if (b.stats.solvable) cands.push(b);
+      }
+    }
+    if (!cands.length) continue;
+    cands.sort((a, b) => Math.abs(boardScore(a.stats) - target) - Math.abs(boardScore(b.stats) - target));
+    const best = cands[0];
+    best.S = S; best.R = R; best.shape = si; best.target = target;
+    return best;
+  }
+  throw new Error('3d generation failed ' + level);
+}
+// </GEN3>
+
 // ============================== Helpers ==============================
 const COLORS = ['#38BDF8','#34D399','#FBBF24','#F472B6','#A78BFA','#FB923C'];
 const $ = id => document.getElementById(id);
@@ -357,14 +589,27 @@ const store = {
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 };
 
+// ---- save-data versioning: every future change to the save format adds a step here ----
+const SAVE_VERSION = 5;
+(function migrate(){
+  const v = store.get('ae_ver', 0);
+  if (v >= SAVE_VERSION) return;
+  const num = (k, d, min) => { let x = Number(store.get(k, d)); if (!isFinite(x) || x < min) x = d; store.set(k, Math.floor(x)); };
+  // v<5: 3D mode keys introduced; old numeric keys sanitised. Nothing else is ever deleted.
+  num('ae_level', 1, 1); num('ae_best', 1, 1); num('ae_coins', 0, 0); num('ae_level3', 1, 1); num('ae_best3', 1, 1);
+  store.set('ae_ver', SAVE_VERSION);
+})();
+
 let lang = store.get('ae_lang', null);
 if (!LANGS[lang]) lang = detectLang();
 let level = store.get('ae_level', 1);
 let bestLevel = store.get('ae_best', 1);
+let level3 = store.get('ae_level3', 1);
+let bestLevel3 = store.get('ae_best3', 1);
 let muted = store.get('ae_mute', false);
 let coins = store.get('ae_coins', 0);
 let themeMode = store.get('ae_theme', 'auto'); // auto | dark | light
-const HINT_COST = 15, REVIVE_COST = 50, WIN_COINS = 10, PERFECT_BONUS = 5, DAILY_COINS = 30;
+const HINT_COST = 15, REVIVE_COST = 50, WIN_COINS = 10, WIN3_COINS = 15, PERFECT_BONUS = 5, DAILY_COINS = 30;
 const t = k => (I18N[lang] && I18N[lang][k]) || I18N.en[k];
 
 function todayNum(){ const d = new Date(); return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000); }
@@ -395,9 +640,10 @@ function markDailyDone(){
 // ============================== Theme ==============================
 const mmLight = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 let dotColor = 'rgba(148,163,184,.25)';
+let themeEff = 'dark';
 function applyTheme(){
   const eff = themeMode === 'auto' ? (mmLight && mmLight.matches ? 'light' : 'dark') : themeMode;
-  document.documentElement.dataset.theme = eff;
+  document.documentElement.dataset.theme = eff; themeEff = eff;
   dotColor = eff === 'light' ? 'rgba(71,85,105,.3)' : 'rgba(148,163,184,.25)';
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = eff === 'light' ? '#F1F5F9' : '#0F172A';
@@ -441,21 +687,49 @@ let game = null;
 let layout = { cell: 40, ox: 0, oy: 0, w: 0, h: 0 };
 let particles = [];
 
+function saveKey(){ return game && game.kind === '3d' ? 'ae_save3' : 'ae_save'; }
 function saveProgress(){
-  if (!game || game.over){ store.set('ae_save', null); return; }
-  store.set('ae_save', {
-    mode: game.mode, level, day: todayNum(),
+  if (!game || game.over){ store.set(saveKey(), null); return; }
+  store.set(saveKey(), {
+    mode: game.mode, level: game.kind === '3d' ? level3 : level, day: todayNum(),
     removed: game.arrows.filter(a => a.removed || a.anim).map(a => a.id),
     lives: game.lives, hints: game.hints, lost: game.lost
   });
 }
-function clearProgress(){ store.set('ae_save', null); }
+function clearProgress(){ store.set(saveKey(), null); }
+
+// generic helpers that hide the difference between the flat board and the 3D surface
+function curRay(a){ return game.kind === '3d' ? ray3(game.S, a, game.R) : rayOf(a, game.size); }
+function occAtRef(r){ return game.kind === '3d' ? game.occ[r] : game.occ[r[1]][r[0]]; }
+function curBlocker(a){
+  for (const r of curRay(a)){ const o = occAtRef(r); if (o !== -1 && o !== a.id) return o; }
+  return -1;
+}
+function clearOcc(a){
+  if (game.kind === '3d') for (const c of a.cells) game.occ[c] = -1;
+  else for (const [x, y] of a.cells) game.occ[y][x] = -1;
+}
+// restores removed arrows / lives from a save; returns false if the save looks corrupted
+function restoreFrom(sv){
+  if (!sv || !Array.isArray(sv.removed)) return true;
+  let cnt = 0;
+  for (const id of sv.removed){
+    const a = game.arrows[id];
+    if (!a || a.removed) continue;
+    a.removed = true; cnt++; clearOcc(a);
+  }
+  if (cnt >= game.arrows.length) return false;
+  game.lives = Math.min(3, Math.max(1, sv.lives || 3));
+  game.hints = Math.min(3, Math.max(0, sv.hints != null ? sv.hints : 3));
+  game.lost = sv.lost || 0;
+  return true;
+}
 
 function startGame(mode, n, fresh){
   let g;
   if (mode === 'daily') g = generateLevel(1, { size: 8, maxLen: 6, seed: todayNum() * 31 + 7, target: 4 });
   else g = generateLevel(n);
-  game = { mode, size: g.size, arrows: g.arrows, occ: g.occ, lives: 3, hints: 3, flashes: [], pulse: null, over: false, lost: 0 };
+  game = { kind: '2d', mode, size: g.size, arrows: g.arrows, occ: g.occ, lives: 3, hints: 3, flashes: [], pulse: null, over: false, lost: 0 };
   particles = [];
   if (mode === 'level'){ level = n; store.set('ae_level', level); }
   if (fresh) clearProgress();
@@ -464,21 +738,24 @@ function startGame(mode, n, fresh){
     const match = sv && sv.mode === mode &&
       (mode !== 'level' || sv.level === n) &&
       (mode !== 'daily' || sv.day === todayNum());
-    if (match && Array.isArray(sv.removed)){
-      let cnt = 0;
-      for (const id of sv.removed){
-        const a = game.arrows[id];
-        if (!a || a.removed) continue;
-        a.removed = true; cnt++;
-        for (const [x, y] of a.cells) game.occ[y][x] = -1;
-      }
-      if (cnt >= game.arrows.length) { // corrupted save: everything removed
-        return startGame(mode, n, true);
-      }
-      game.lives = Math.min(3, Math.max(1, sv.lives || 3));
-      game.hints = Math.min(3, Math.max(0, sv.hints != null ? sv.hints : 3));
-      game.lost = sv.lost || 0;
-    }
+    if (match && !restoreFrom(sv)) return startGame(mode, n, true);
+  }
+  doLayout();
+  updateHUD();
+  saveProgress();
+}
+
+function startGame3(n, fresh){
+  const g = generateLevel3(n);
+  game = { kind: '3d', mode: 'level3', S: g.S, R: g.R, shape: g.shape, size: 0, arrows: g.arrows, occ: g.occ,
+           lives: 3, hints: 3, flashes: [], pulse: null, over: false, lost: 0, proj: [], vz: [] };
+  particles = [];
+  level3 = n; store.set('ae_level3', level3);
+  view.yaw = -0.7; view.pitch = 0.5; view.vyaw = view.vpitch = 0; view.tgt = null;
+  if (fresh) clearProgress();
+  else {
+    const sv = store.get('ae_save3', null);
+    if (sv && sv.mode === 'level3' && sv.level === n && !restoreFrom(sv)) return startGame3(n, true);
   }
   doLayout();
   updateHUD();
@@ -492,6 +769,12 @@ function doLayout(){
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   layout.w = r.width; layout.h = r.height;
   if (!game) return;
+  if (game.kind === '3d'){
+    layout.cx = r.width / 2; layout.cy = r.height / 2;
+    layout.persp = game.S.radius * 6.5;
+    layout.sc = Math.min(r.width, r.height) * 0.5 / (game.S.radius * 1.17);
+    return;
+  }
   const pad = 14;
   layout.cell = Math.floor(Math.min((r.width - pad * 2) / game.size, (r.height - pad * 2) / game.size));
   layout.ox = Math.round((r.width - layout.cell * game.size) / 2);
@@ -501,7 +784,8 @@ window.addEventListener('resize', doLayout);
 
 function updateHUD(){
   if (!game) return;
-  $('lvl').textContent = game.mode === 'daily' ? t('daily') : t('level') + ' ' + level;
+  $('lvl').textContent = game.kind === '3d' ? t('level') + ' ' + level3 + ' · ' + t('sh_' + SHAPES[game.shape].id)
+    : game.mode === 'daily' ? t('daily') : t('level') + ' ' + level;
   $('hearts').textContent = '❤'.repeat(game.lives) + '♡'.repeat(Math.max(0, 3 - game.lives));
   const left = game.arrows.filter(a => !a.removed).length;
   $('left').textContent = t('left') + ': ' + left;
@@ -591,6 +875,10 @@ function frame(now){
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
   if (!game) return;
   ctx.clearRect(0, 0, layout.w, layout.h);
+  if (game.kind === '3d') draw3d(now, dt); else draw2d(now);
+  drawParticles(now, dt);
+}
+function draw2d(now){
   const c = layout.cell;
   ctx.fillStyle = dotColor;
   for (let y = 0; y < game.size; y++) for (let x = 0; x < game.size; x++){
@@ -627,6 +915,9 @@ function frame(now){
     const alpha = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
     drawArrow(a, ease * a.anim.total, COLORS[a.color], alpha, 0);
   }
+}
+
+function drawParticles(now, dt){
   if (particles.length){
     for (const p of particles){
       p.vy += 900 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
@@ -640,9 +931,199 @@ function frame(now){
 }
 requestAnimationFrame(frame);
 
+// ============================== 3D rendering ==============================
+const view = { yaw: -0.7, pitch: 0.5, vyaw: 0, vpitch: 0, tgt: null };
+let drag3 = null;
+let _cy = 1, _sy = 0, _cp = 1, _sp = 0;
+const LIGHT3 = (() => { const v = [-0.4, 0.8, 0.6], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
+function setRot(){ _cy = Math.cos(view.yaw); _sy = Math.sin(view.yaw); _cp = Math.cos(view.pitch); _sp = Math.sin(view.pitch); }
+function rotV(x, y, z){ const x1 = _cy * x + _sy * z, z1 = -_sy * x + _cy * z; return [x1, _cp * y - _sp * z1, _sp * y + _cp * z1]; }
+function proj3(S, x, y, z){
+  const q = rotV(x - S.center[0], y - S.center[1], z - S.center[2]);
+  const f = layout.persp / (layout.persp - q[2]);
+  return [layout.cx + q[0] * f * layout.sc, layout.cy - q[1] * f * layout.sc, q[2], f];
+}
+function angDiff(a, b){ return Math.atan2(Math.sin(a - b), Math.cos(a - b)); }
+function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+// full path of an arrow over the surface: its own cells + the cells it will fly over when it leaves
+function arrowNodes(S, a, R){
+  if (a._nodes) return a._nodes;
+  const pc = a.cells.slice(), pd = a.dirs.slice();
+  let c = pc[pc.length - 1], d = a.hd;
+  for (let i = 0; i < R + 5; i++){ const nx = S.nb[c][d]; pd.push(d); pc.push(nx.to); c = nx.to; d = nx.d; }
+  const N = [];
+  for (let i = 0; i < pc.length; i++){
+    const cc = S.cells[pc[i]], n = AX[cc.f];
+    N.push([cc.v[0] + .5 * n[0], cc.v[1] + .5 * n[1], cc.v[2] + .5 * n[2]]);        // cell centre
+    if (i < pc.length - 1){ const t = AX[pd[i]], q = N[N.length - 1]; N.push([q[0] + .5 * t[0], q[1] + .5 * t[1], q[2] + .5 * t[2]]); } // edge to next cell
+  }
+  return (a._nodes = { N, pc, pd });
+}
+function faceFill(shade){
+  const lo = themeEff === 'light' ? [150, 166, 190] : [24, 34, 54], hi = themeEff === 'light' ? [236, 241, 248] : [88, 108, 140];
+  return 'rgb(' + Math.round(lo[0] + (hi[0] - lo[0]) * shade) + ',' + Math.round(lo[1] + (hi[1] - lo[1]) * shade) + ',' + Math.round(lo[2] + (hi[2] - lo[2]) * shade) + ')';
+}
+function arrowStyle3(a, now, hintOn){
+  let color = COLORS[a.color], alpha = hintOn && a.id !== game.pulse.id ? 0.25 : 1, jitter = 0;
+  const fl = game.flashes.find(f => f.id === a.id);
+  if (fl){
+    const k = (now - fl.t0) / fl.dur;
+    if (k >= 1) game.flashes = game.flashes.filter(f => f !== fl);
+    else { color = '#EF4444'; alpha = 1; if (fl.shake) jitter = Math.sin(k * 28) * layout.sc * 0.08 * (1 - k); }
+  }
+  return { color, alpha, jitter };
+}
+function drawHead3(S, H, h, nrm, color, jitter){
+  const s = [nrm[1] * h[2] - nrm[2] * h[1], nrm[2] * h[0] - nrm[0] * h[2], nrm[0] * h[1] - nrm[1] * h[0]];
+  const L = 0.36, B = 0.08, W = 0.3, lift = 0.02;
+  const pt = (a, b) => [H[0] + h[0] * a + s[0] * b + nrm[0] * lift, H[1] + h[1] * a + s[1] * b + nrm[1] * lift, H[2] + h[2] * a + s[2] * b + nrm[2] * lift];
+  const tri = [pt(L, 0), pt(-B, W), pt(-B, -W)].map(q => proj3(S, q[0], q[1], q[2]));
+  ctx.fillStyle = color; ctx.beginPath();
+  tri.forEach((q, j) => j ? ctx.lineTo(q[0] + jitter, q[1]) : ctx.moveTo(q[0] + jitter, q[1]));
+  ctx.closePath(); ctx.fill();
+}
+// the part of a resting arrow that lies on cell k (drawn right after that cell's face, so depth order stays right)
+function drawPiece3(a, k, now, hintOn){
+  const S = game.S, N = arrowNodes(S, a, game.R).N, n = a.cells.length;
+  const st = arrowStyle3(a, now, hintOn);
+  const lo = Math.max(0, 2 * k - 1), hi = Math.min(2 * (n - 1), 2 * k + 1);
+  const pts = [];
+  for (let j = lo; j <= hi; j++){ const q = proj3(S, N[j][0], N[j][1], N[j][2]); pts.push([q[0] + st.jitter, q[1], q[3]]); }
+  const lw = layout.sc * pts[2 * k - lo][2] * 0.19;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const path = () => { ctx.beginPath(); pts.forEach((q, j) => j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.stroke(); };
+  if (hintOn && a.id === game.pulse.id){
+    ctx.globalAlpha = .4 + .3 * Math.sin(now / 130); ctx.strokeStyle = '#F59E0B'; ctx.lineWidth = lw * 2.7; path();
+  }
+  ctx.globalAlpha = st.alpha; ctx.strokeStyle = st.color; ctx.lineWidth = lw; path();
+  if (k === n - 1) drawHead3(S, N[2 * k], AX[a.hd], AX[S.cells[a.cells[k]].f], st.color, st.jitter);
+  ctx.restore();
+}
+// an arrow that is sliding (or bouncing): window of its path shifted by `off` nodes
+function drawMoving3(a, off, color, alpha){
+  const S = game.S, nd = arrowNodes(S, a, game.R), N = nd.N, n = a.cells.length;
+  const s0 = clamp(off, 0, N.length - 2), s1 = Math.min(N.length - 1, s0 + 2 * (n - 1));
+  const at = s => { const i = Math.min(N.length - 2, Math.floor(s)), f = s - i, p = N[i], q = N[i + 1]; return [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f, p[2] + (q[2] - p[2]) * f]; };
+  const ss = [s0];
+  for (let j = Math.floor(s0) + 1; j < s1 - 1e-6; j++) ss.push(j);
+  ss.push(s1);
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = alpha; ctx.strokeStyle = color;
+  const P = ss.map(sv => { const w = at(sv), q = proj3(S, w[0], w[1], w[2]); return q; });
+  for (let j = 0; j < ss.length - 1; j++){
+    const mid = (ss[j] + ss[j + 1]) / 2, owner = clamp(Math.floor((mid + 1) / 2), 0, nd.pc.length - 1);
+    if (game.vz[nd.pc[owner]] <= 0.04) continue;
+    ctx.lineWidth = layout.sc * (P[j][3] + P[j + 1][3]) / 2 * 0.19;
+    ctx.beginPath(); ctx.moveTo(P[j][0], P[j][1]); ctx.lineTo(P[j + 1][0], P[j + 1][1]); ctx.stroke();
+  }
+  const kc = clamp(Math.floor((s1 + 1) / 2), 0, nd.pc.length - 1);
+  if (game.vz[nd.pc[kc]] > 0.04){
+    ctx.fillStyle = color;
+    drawHead3(S, at(s1), AX[nd.pd[Math.min(kc, nd.pd.length - 1)]], AX[S.cells[nd.pc[kc]].f], color, 0);
+  }
+  ctx.restore();
+}
+function draw3d(now, dt){
+  const S = game.S, C = S.cells.length;
+  if (!drag3){
+    if (view.tgt){
+      const dy = angDiff(view.tgt.yaw, view.yaw), dp = view.tgt.pitch - view.pitch;
+      view.yaw += dy * 0.13; view.pitch += dp * 0.13;
+      if (Math.abs(dy) < 0.004 && Math.abs(dp) < 0.004) view.tgt = null;
+    } else if (Math.abs(view.vyaw) > 0.0004 || Math.abs(view.vpitch) > 0.0004){
+      view.yaw += view.vyaw; view.pitch = clamp(view.pitch + view.vpitch, -1.45, 1.45);
+      view.vyaw *= 0.93; view.vpitch *= 0.93;
+    }
+  }
+  setRot();
+  const hintOn = game.pulse && !game.over;
+  const front = [];
+  for (let i = 0; i < C; i++){
+    const cell = S.cells[i], n = AX[cell.f], nv = rotV(n[0], n[1], n[2]);
+    game.vz[i] = nv[2];
+    if (nv[2] <= 0.04) continue;
+    front.push({ i, nv, P: proj3(S, cell.v[0] + .5 * n[0], cell.v[1] + .5 * n[1], cell.v[2] + .5 * n[2]) });
+  }
+  front.sort((a, b) => a.P[2] - b.P[2]);          // far -> near
+  game.proj = [];
+  ctx.lineJoin = 'round';
+  for (const e of front){
+    const i = e.i, cell = S.cells[i], n = AX[cell.f], k = cell.f >> 1, u = k === 0 ? 1 : 0, w = k === 2 ? 1 : 2;
+    const bx = cell.v[0] + .5 * n[0], by = cell.v[1] + .5 * n[1], bz = cell.v[2] + .5 * n[2];
+    ctx.beginPath();
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach((ab, j) => {
+      const p = [bx, by, bz]; p[u] += ab[0] * 0.485; p[w] += ab[1] * 0.485;
+      const q = proj3(S, p[0], p[1], p[2]);
+      j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
+    });
+    ctx.closePath();
+    const shade = clamp(0.5 + 0.5 * (e.nv[0] * LIGHT3[0] + e.nv[1] * LIGHT3[1] + e.nv[2] * LIGHT3[2]), 0, 1);
+    ctx.fillStyle = faceFill(shade); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = themeEff === 'light' ? 'rgba(71,85,105,.45)' : 'rgba(148,163,184,.28)'; ctx.stroke();
+    const id = game.occ[i];
+    if (id !== -1){
+      const a = game.arrows[id];
+      if (e.nv[2] > 0.12) game.proj.push({ id, x: e.P[0], y: e.P[1], r: Math.max(16, layout.sc * e.P[3] * 0.72), z: e.P[2] });
+      if (!a.anim && !a.bump && e.nv[2] > 0.1) drawPiece3(a, a.cells.indexOf(i), now, hintOn);
+    }
+  }
+  for (const a of game.arrows){
+    if (a.removed || (!a.anim && !a.bump)) continue;
+    if (a.anim){
+      const k = (now - a.anim.t0) / a.anim.dur;
+      if (k >= 1){ a.anim = null; a.removed = true; onArrowGone(); continue; }
+      const ease = k * k * (3 - 2 * k) * 0.35 + k * 0.65;
+      drawMoving3(a, ease * a.anim.total * 2, COLORS[a.color], k < 0.45 ? 1 : 1 - (k - 0.45) / 0.55);
+    } else {
+      const k = (now - a.bump.t0) / a.bump.dur;
+      if (k >= 1){ a.bump = null; continue; }
+      drawMoving3(a, a.bump.dist * Math.sin(Math.min(1, k) * Math.PI) * 2, COLORS[a.color], 1);
+    }
+  }
+}
+// turn the shape so that surface cell `ci` faces the player
+function aimAt(ci){
+  const n = AX[game.S.cells[ci].f], h = Math.hypot(n[0], n[2]);
+  let yaw = view.yaw;
+  if (h > 0.01) yaw = Math.atan2(-n[0], n[2]) + 0.45;
+  view.tgt = { yaw, pitch: clamp(Math.atan2(n[1], h) + 0.4, -1.3, 1.3) };
+  view.vyaw = view.vpitch = 0;
+}
+
+cv.addEventListener('pointerdown', e => {
+  if (!game || game.kind !== '3d') return;
+  try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+  drag3 = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false };
+  view.vyaw = view.vpitch = 0; view.tgt = null;
+});
+cv.addEventListener('pointermove', e => {
+  if (!drag3 || !game || game.kind !== '3d') return;
+  if (!drag3.moved && Math.hypot(e.clientX - drag3.sx, e.clientY - drag3.sy) > 8) drag3.moved = true;
+  if (drag3.moved){
+    const dx = e.clientX - drag3.x, dy = e.clientY - drag3.y;
+    view.yaw += dx * 0.0095; view.pitch = clamp(view.pitch + dy * 0.0095, -1.45, 1.45);
+    view.vyaw = dx * 0.0095; view.vpitch = dy * 0.0095;
+  }
+  drag3.x = e.clientX; drag3.y = e.clientY;
+});
+function endDrag3(e, cancel){
+  if (!drag3) return;
+  const d = drag3; drag3 = null;
+  if (cancel || d.moved || !game || game.kind !== '3d' || game.over) return;
+  const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  let best = null, bd = 1e9;
+  for (const p of game.proj){
+    const dist = Math.hypot(p.x - px, p.y - py);
+    if (dist < p.r && (dist < bd - 3 || (Math.abs(dist - bd) <= 3 && p.z > best.z))){ bd = dist; best = p; }
+  }
+  if (best) tap(game.arrows[best.id]);
+}
+cv.addEventListener('pointerup', e => endDrag3(e, false));
+cv.addEventListener('pointercancel', e => endDrag3(e, true));
+
 // ============================== Input ==============================
 cv.addEventListener('pointerdown', e => {
-  if (!game || game.over) return;
+  if (!game || game.over || game.kind === '3d') return;
   const r = cv.getBoundingClientRect();
   const fx = (e.clientX - r.left - layout.ox) / layout.cell;
   const fy = (e.clientY - r.top - layout.oy) / layout.cell;
@@ -667,22 +1148,23 @@ cv.addEventListener('pointerdown', e => {
 
 function tap(a){
   if (a.removed || a.anim) return;
-  const blocker = blockerOf(a, game.occ, game.size);
+  const is3 = game.kind === '3d';
+  const blocker = curBlocker(a);
   const now = performance.now();
   game.pulse = null;
   if (blocker === -1){
-    for (const [x, y] of a.cells) game.occ[y][x] = -1;
-    const ray = rayOf(a, game.size).length;
-    const total = ray + a.cells.length + 2;
-    a.anim = { t0: now, total, dur: Math.max(380, total * 55) };
+    clearOcc(a);
+    const ray = curRay(a).length;
+    const total = is3 ? ray + 3 : ray + a.cells.length + 2;
+    a.anim = { t0: now, total, dur: is3 ? Math.max(460, total * 64) : Math.max(380, total * 55) };
     a.bump = null;
     sfx.slide();
     saveProgress();
   } else {
     // bump: slide to the obstacle and bounce back
     let gap = 0;
-    for (const [x, y] of rayOf(a, game.size)){
-      const o = game.occ[y][x];
+    for (const r of curRay(a)){
+      const o = occAtRef(r);
       if (o !== -1 && o !== a.id) break;
       gap++;
     }
@@ -694,7 +1176,7 @@ function tap(a){
     if (navigator.vibrate) try{ navigator.vibrate(60); }catch(e){}
     updateHUD();
     saveProgress();
-    if (game.lives <= 0){ game.over = true; clearProgress(); setTimeout(showFail, 650); }
+    if (game.lives <= 0){ game.over = true; clearProgress(); const gf = game; setTimeout(() => { if (game === gf) showFail(); }, 650); }
   }
 }
 
@@ -705,7 +1187,11 @@ function onArrowGone(){
     game.over = true;
     clearProgress();
     let earned = 0;
-    if (game.mode === 'level'){
+    if (game.mode === 'level3'){
+      earned = WIN3_COINS + (game.lost === 0 ? PERFECT_BONUS : 0);
+      if (level3 + 1 > bestLevel3){ bestLevel3 = level3 + 1; store.set('ae_best3', bestLevel3); }
+      store.set('ae_level3', level3 + 1);
+    } else if (game.mode === 'level'){
       earned = WIN_COINS + (game.lost === 0 ? PERFECT_BONUS : 0);
       if (level + 1 > bestLevel){ bestLevel = level + 1; store.set('ae_best', bestLevel); }
       store.set('ae_level', level + 1);
@@ -717,21 +1203,28 @@ function onArrowGone(){
     game.earned = earned;
     spawnConfetti();
     sfx.win();
-    setTimeout(showWin, 450);
+    const gw = game; setTimeout(() => { if (game === gw) showWin(); }, 450);
   }
 }
 
 // ============================== Buttons ==============================
 function giveHint(auto){
   if (!game || game.over) return;
-  const free = game.arrows.filter(a => !a.removed && !a.anim && blockerOf(a, game.occ, game.size) === -1);
+  const free = game.arrows.filter(a => !a.removed && !a.anim && curBlocker(a) === -1);
   if (!free.length) return;
   if (!auto){
     if (game.hints > 0) game.hints--;
     else if (coins >= HINT_COST){ coins -= HINT_COST; store.set('ae_coins', coins); }
     else { toast(t('nohint')); return; }
   }
-  const a = free[Math.floor(Math.random() * free.length)];
+  let pool = free;
+  const headOf = x => x.cells[x.cells.length - 1];
+  if (game.kind === '3d'){
+    const vis = free.filter(x => (game.vz[headOf(x)] || 0) > 0.35);
+    if (vis.length) pool = vis;
+  }
+  const a = pool[Math.floor(Math.random() * pool.length)];
+  if (game.kind === '3d' && (game.vz[headOf(a)] || 0) <= 0.35) aimAt(headOf(a));
   game.pulse = { id: a.id, t0: performance.now() };  // stays until the player taps
   if (auto) toast(t('tapHint'), 2200);
   sfx.hint();
@@ -743,7 +1236,8 @@ $('btnRestart').onclick = () => { sfx.click(); hideOverlay(); restartCurrent(tru
 $('btnHome').onclick = () => { sfx.click(); showHome(); };
 
 function restartCurrent(fresh){
-  if (game && game.mode === 'daily') startGame('daily', 0, fresh);
+  if (game && game.kind === '3d') startGame3(level3, fresh);
+  else if (game && game.mode === 'daily') startGame('daily', 0, fresh);
   else startGame('level', level, fresh);
 }
 
@@ -753,7 +1247,9 @@ function renderHome(){
   const ds = dailyState();
   $('hTag').textContent = t('tagline');
   $('hCoins').textContent = '🪙 ' + coins;
-  $('hPlay').textContent = t('playLevel') + ' ' + level;
+  $('hPlay').innerHTML = '<b>▦ ' + t('flat') + '</b><small>' + t('level') + ' ' + level + '</small>';
+  $('hPlay3').innerHTML = '<b>🧊 3D</b><small>' + t('level') + ' ' + level3 + ' · ' + t('sh_' + SHAPES[levelParams3(level3).si].id) + '</small>';
+  $('hSave').textContent = t('saveBtn');
   $('hDaily').innerHTML = t('dailyBtn') + '<small>' +
     (ds.doneToday ? t('done') + ' · ' + timeToNextDaily() : t('today')) +
     (ds.streak ? ' · 🔥 ' + ds.streak : '') + '</small>';
@@ -768,6 +1264,11 @@ function showHome(){ renderHome(); $('home').classList.remove('hide'); }
 function hideHome(){ $('home').classList.add('hide'); }
 
 $('hPlay').onclick = () => { sfx.click(); hideHome(); startGame('level', level); maybeTutorial(); };
+$('hPlay3').onclick = () => {
+  sfx.click(); hideHome(); startGame3(level3);
+  if (!store.get('ae_seen3', false)) maybeTutorial3(); else if (level3 <= 2) toast(t('rotateHint'), 2200);
+};
+$('hSave').onclick = () => { sfx.click(); showSave(); };
 $('hDaily').onclick = () => {
   sfx.click();
   if (dailyState().doneToday){ toast(t('done') + ' · ' + timeToNextDaily(), 2200); renderHome(); return; }
@@ -804,7 +1305,7 @@ function showWin(){
   } else {
     showOverlay(`<div class="stars">${stars}</div><h2>${t('win')}</h2>${earn}
       <button class="primary" id="ovBtn">${t('next')}</button>`);
-    $('ovBtn').onclick = () => { sfx.click(); hideOverlay(); startGame('level', level + 1, true); };
+    $('ovBtn').onclick = () => { sfx.click(); hideOverlay(); if (game.mode === 'level3') startGame3(level3 + 1, true); else startGame('level', level + 1, true); };
   }
 }
 function showFail(){
@@ -818,6 +1319,68 @@ function showFail(){
     sfx.coin(); hideOverlay(); updateHUD(); saveProgress();
   };
   $('ovBtn').onclick = () => { sfx.click(); hideOverlay(); restartCurrent(true); };
+}
+
+function maybeTutorial3(){
+  store.set('ae_seen3', true);
+  showOverlay(`<h2>🧊 3D</h2><p>${t('how3').replace(/\n/g, '<br>')}</p><button class="primary" id="ovBtn">${t('ok')}</button>`);
+  $('ovBtn').onclick = () => { sfx.click(); hideOverlay(); toast(t('rotateHint'), 2200); };
+}
+
+// ============================== Progress code (backup / move to another device) ==============================
+function collectProgress(){
+  const n = (k, d) => store.get(k, d);   // what is saved on the device is the truth (e.g. a just-won level already points to the next one)
+  return { lang, level: n('ae_level', level), best: n('ae_best', bestLevel), coins, theme: themeMode, mute: muted,
+           level3: n('ae_level3', level3), best3: n('ae_best3', bestLevel3),
+           streak: store.get('ae_streak', { last: -1, n: 0 }), daily: store.get('ae_daily', { day: -1, done: false }) };
+}
+function b64e(str){ return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function b64d(str){ str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '='; return decodeURIComponent(escape(atob(str))); }
+function codeHash(str){ let h = 2166136261; for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return ('00000' + (h >>> 0).toString(36)).slice(-5); }
+function exportCode(){
+  const body = b64e(JSON.stringify({ v: SAVE_VERSION, d: collectProgress() }));
+  return 'AE' + SAVE_VERSION + '-' + body + '-' + codeHash(body);
+}
+function migrateData(d, v){ return d; }   // future: adapt codes exported by older versions here
+function importCode(str){
+  const m = /^AE(\d+)-([A-Za-z0-9_-]+)-([a-z0-9]{5})$/.exec(String(str).replace(/\s+/g, ''));
+  if (!m || codeHash(m[2]) !== m[3]) return false;
+  let o; try{ o = JSON.parse(b64d(m[2])); }catch(e){ return false; }
+  if (!o || typeof o !== 'object' || !o.d || !(o.v <= SAVE_VERSION)) return false;
+  const d = migrateData(o.d, o.v);
+  const int = (x, min, def) => { x = Math.floor(Number(x)); return isFinite(x) && x >= min ? Math.min(x, 1e7) : def; };
+  if (LANGS[d.lang]) store.set('ae_lang', d.lang);
+  store.set('ae_level', int(d.level, 1, 1)); store.set('ae_best', int(d.best, 1, 1)); store.set('ae_coins', int(d.coins, 0, 0));
+  store.set('ae_level3', int(d.level3, 1, 1)); store.set('ae_best3', int(d.best3, 1, 1));
+  if (['auto', 'dark', 'light'].indexOf(d.theme) !== -1) store.set('ae_theme', d.theme);
+  store.set('ae_mute', !!d.mute);
+  if (d.streak && isFinite(d.streak.last) && isFinite(d.streak.n)) store.set('ae_streak', { last: +d.streak.last, n: int(d.streak.n, 0, 0) });
+  if (d.daily && isFinite(d.daily.day)) store.set('ae_daily', { day: +d.daily.day, done: !!d.daily.done });
+  store.set('ae_save', null); store.set('ae_save3', null); store.set('ae_ver', SAVE_VERSION);
+  return true;
+}
+function showSave(){
+  showOverlay(`<h2>${t('saveTitle')}</h2><p>${t('saveHint')}</p>
+    <textarea id="svOut" readonly></textarea>
+    <button class="primary" id="svCopy">${t('copy')}</button>
+    <h3>${t('importHint')}</h3>
+    <textarea id="svIn" placeholder="AE5-…"></textarea>
+    <button id="svRestore">${t('importBtn')}</button>
+    <button class="ghost" id="svClose">${t('close')}</button>`);
+  const out = $('svOut'); out.value = exportCode();
+  $('svCopy').onclick = async () => {
+    sfx.click();
+    try{ await navigator.clipboard.writeText(out.value); }
+    catch(e){ out.focus(); out.select(); try{ document.execCommand('copy'); }catch(_){} }
+    $('svCopy').textContent = t('copied');
+    setTimeout(() => { const b = $('svCopy'); if (b) b.textContent = t('copy'); }, 1600);
+  };
+  $('svRestore').onclick = () => {
+    sfx.click();
+    if (importCode($('svIn').value)){ toast(t('importOk'), 1800); setTimeout(() => location.reload(), 900); }
+    else toast(t('importBad'), 1800);
+  };
+  $('svClose').onclick = () => { sfx.click(); hideOverlay(); };
 }
 
 // first-ever level: show rules once, then point at a free arrow
