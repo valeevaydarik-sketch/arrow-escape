@@ -436,7 +436,9 @@ const SHAPES = [
   { id:'pyramid',  big:1, vox: () => vbox(0,4,0,0,0,4).concat(vbox(1,3,1,1,1,3), vbox(2,2,2,2,2,2)) },
   { id:'arch',     big:1, vox: () => vbox(0,3,0,1,0,3).filter(v => !(v[0] >= 1 && v[0] <= 2 && v[2] >= 1 && v[2] <= 2)) },
   { id:'dumbbell', big:0, vox: () => vbox(0,2,0,2,0,2).concat(vbox(3,4,1,1,1,1), vbox(5,7,0,2,0,2)) },
-  { id:'cube5',    big:0, vox: () => vbox(0,4,0,4,0,4) }
+  { id:'cube5',    big:0, vox: () => vbox(0,4,0,4,0,4) },
+  { id:'cube6',    big:0, vox: () => vbox(0,5,0,5,0,5) },
+  { id:'cube7',    big:0, vox: () => vbox(0,6,0,6,0,6) }
 ];
 
 const _surfCache = {};
@@ -517,16 +519,32 @@ function surfaceOf(si, k){
   return (_surfCache[ck] = { si, k, cells, nb, edgeRuns, center, radius });
 }
 
+// Early levels are plain cubes that grow (more cells, more arrows); other shapes join in later.
+// Glowing edges show up now and then (several edges at once), not on every level.
+const CUBE_IDX = { 3: 0, 4: 3, 5: 9, 6: 10, 7: 11 };
+const MIX_ORDER = [1, 2, 4, 5, 6, 7, 8];     // stairs, cross, lblock, hammer, pyramid, arch, dumbbell
 function levelParams3(level){
-  const N = SHAPES.length, si = (level - 1) % N, tier = Math.floor((level - 1) / N);
   const L = level - 1;
-  const k = tier >= 1 && SHAPES[si].big ? 2 : 1;                      // small shapes come back twice as big
-  const maxLen = Math.min(10, 3 + Math.floor(L / 5));                // longer arrows later
-  let density = Math.min(0.2, 0.115 + L * 0.0022);                   // arrows per surface cell
+  let si;
+  if (level <= 3) si = CUBE_IDX[3];
+  else if (level <= 7) si = CUBE_IDX[4];
+  else if (level <= 12) si = CUBE_IDX[5];
+  else if (level <= 18) si = CUBE_IDX[6];
+  else if (level <= 25) si = CUBE_IDX[7];
+  else {
+    const idx = level - 26;
+    if (idx % 4 === 3) si = (idx >> 2) % 2 ? CUBE_IDX[7] : CUBE_IDX[6];
+    else si = MIX_ORDER[(idx - Math.floor((idx + 1) / 4)) % MIX_ORDER.length];
+  }
+  const k = level >= 50 && SHAPES[si].big ? 2 : 1;
+  const maxLen = Math.min(10, 4 + Math.floor(L / 6));
+  let density = Math.min(0.3, 0.17 + L * 0.003);
   let target = Math.min(10, 2.8 + L * 0.1);
-  const marks = level < 40 ? 0 : Math.min(4, 1 + Math.floor((level - 40) / 20));   // glowing edges from level 40
-  if (level % 6 === 0 && level > 1){ density *= 0.75; target = Math.max(2.5, target * 0.65); }
-  return { si, tier, k, maxLen, density, target, marks };
+  let marks = 0;
+  const rm = mulberry32(level * 977 + 5);
+  if (level === 12 || (level > 12 && rm() < (level < 40 ? 0.35 : 0.5))) marks = 2 + Math.floor(rm() * 3) + (level >= 60 ? 1 : 0);
+  if (level % 6 === 0 && level > 1){ density *= 0.8; target = Math.max(2.5, target * 0.65); }
+  return { si, tier: 0, k, maxLen, density, target, marks };
 }
 
 // the path of an arrow: flat cells ahead until the face ends ("out"); glowing edges continue onto the next face.
@@ -552,7 +570,7 @@ function blocker3(S, a, occ, marks){
 
 // Reverse-order construction (same idea as the flat generator): each new arrow's exit path
 // must avoid every already placed cell, so removing arrows in reverse order always works.
-function gen3One(S, seed, maxLen, cap, marks){
+function gen3One(S, seed, maxLen, cap, marks, minFrac){
   const rng = mulberry32(seed), C = S.cells.length;
   const occ = new Array(C).fill(-1), arrows = [];
   const attempts = C * 45;
@@ -583,7 +601,7 @@ function gen3One(S, seed, maxLen, cap, marks){
     for (const x of cells) occ[x] = id;
     arrows.push({ id, cells, dirs, hd: lastD, color: Math.floor(rng() * 6), removed: false, crosses: r.crossed });
   }
-  if (arrows.length < Math.max(5, Math.floor(cap * 0.8))) return null;
+  if (arrows.length < Math.max(5, Math.floor(cap * (minFrac || 0.5)))) return null;
   return { arrows, occ };
 }
 
@@ -629,7 +647,7 @@ function generateLevel3(level, opts){
   const cap = Math.max(6, Math.round(S.cells.length * lp.density));
   const baseSeed = level * 6203 + si * 131 + 29;
   const pm = pickMarks(S, nm, baseSeed + 7);
-  const need = nm ? Math.min(3, 1 + nm) : 0;
+  const need = nm ? Math.min(3, nm) : 0;
   const cands = [];
   for (let salt = 0; salt < 40 && cands.length < 12; salt++){
     const b = gen3One(S, baseSeed + salt * 104729, maxLen, cap, pm.marks);
@@ -637,6 +655,10 @@ function generateLevel3(level, opts){
       b.stats = boardStats3(S, b, pm.marks);
       if (b.stats.solvable){ b.cross = b.arrows.filter(a => a.crosses).length; cands.push(b); }
     }
+  }
+  for (let salt = 40; !cands.length && salt < 80; salt++){
+    const b = gen3One(S, baseSeed + salt * 104729, maxLen, cap, pm.marks, 0.2);
+    if (b){ b.stats = boardStats3(S, b, pm.marks); if (b.stats.solvable){ b.cross = b.arrows.filter(a => a.crosses).length; cands.push(b); } }
   }
   if (!cands.length) throw new Error('3d generation failed ' + level);
   const pen = c => (need && c.cross < need ? 1 : 0);
@@ -829,7 +851,7 @@ function startGame3(n, fresh){
            lives: 3, hints: 3, flashes: [], pulse: null, over: false, lost: 0, proj: [], vz: [] };
   particles = [];
   level3 = n; store.set('ae_level3', level3);
-  view.yaw = -0.7; view.pitch = 0.5; view.vyaw = view.vpitch = 0; view.tgt = null;
+  view.M = ypMat(-0.7, 0.5); view.vx = view.vy = 0; view.tgt = null;
   if (fresh) clearProgress();
   else {
     const sv = store.get('ae_save3', null);
@@ -863,7 +885,7 @@ window.addEventListener('resize', doLayout);
 
 function updateHUD(){
   if (!game) return;
-  $('lvl').textContent = game.kind === '3d' ? t('level') + ' ' + level3 + ' · ' + t('sh_' + SHAPES[game.shape].id)
+  $('lvl').textContent = game.kind === '3d' ? t('level') + ' ' + level3 + ' · ' + t('sh_' + SHAPES[game.shape].id.replace(/^cube[67]$/, 'cube5'))
     : game.mode === 'daily' ? t('daily') : t('level') + ' ' + level;
   $('hearts').textContent = '❤'.repeat(game.lives) + '♡'.repeat(Math.max(0, 3 - game.lives));
   const left = game.arrows.filter(a => !a.removed).length;
@@ -1011,12 +1033,28 @@ function drawParticles(now, dt){
 requestAnimationFrame(frame);
 
 // ============================== 3D rendering ==============================
-const view = { yaw: -0.7, pitch: 0.5, vyaw: 0, vpitch: 0, tgt: null };
+const view = { M: [1,0,0,0,1,0,0,0,1], vx: 0, vy: 0, tgt: null };
+function mmul(A, B){ const r = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) r.push(A[3*i]*B[j] + A[3*i+1]*B[3+j] + A[3*i+2]*B[6+j]); return r; }
+function ypMat(yaw, pitch){
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  return mmul([1,0,0, 0,cp,-sp, 0,sp,cp], [cy,0,sy, 0,1,0, -sy,0,cy]);
+}
+function orthoM(M){
+  let a = M.slice(0,3), b = M.slice(3,6);
+  const na = Math.hypot(a[0],a[1],a[2]) || 1; a = a.map(v => v/na);
+  const d = a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; b = [b[0]-d*a[0], b[1]-d*a[1], b[2]-d*a[2]];
+  const nb2 = Math.hypot(b[0],b[1],b[2]) || 1; b = b.map(v => v/nb2);
+  return a.concat(b, [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]);
+}
+function spin(ax, ay){   // rotate about the screen's vertical (ax) and horizontal (ay) axes
+  const ca = Math.cos(ax), sa = Math.sin(ax), cb = Math.cos(ay), sb = Math.sin(ay);
+  view.M = orthoM(mmul(mmul([1,0,0, 0,cb,-sb, 0,sb,cb], [ca,0,sa, 0,1,0, -sa,0,ca]), view.M));
+}
 let drag3 = null;
 let _cy = 1, _sy = 0, _cp = 1, _sp = 0;
 const LIGHT3 = (() => { const v = [-0.4, 0.8, 0.6], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
-function setRot(){ _cy = Math.cos(view.yaw); _sy = Math.sin(view.yaw); _cp = Math.cos(view.pitch); _sp = Math.sin(view.pitch); }
-function rotV(x, y, z){ const x1 = _cy * x + _sy * z, z1 = -_sy * x + _cy * z; return [x1, _cp * y - _sp * z1, _sp * y + _cp * z1]; }
+function setRot(){}
+function rotV(x, y, z){ const m = view.M; return [m[0]*x + m[1]*y + m[2]*z, m[3]*x + m[4]*y + m[5]*z, m[6]*x + m[7]*y + m[8]*z]; }
 function proj3(S, x, y, z){
   const q = rotV(x - S.center[0], y - S.center[1], z - S.center[2]);
   const f = layout.persp / (layout.persp - q[2]);
@@ -1123,12 +1161,12 @@ function draw3d(now, dt){
   const S = game.S, C = S.cells.length;
   if (!drag3){
     if (view.tgt){
-      const dy = angDiff(view.tgt.yaw, view.yaw), dp = view.tgt.pitch - view.pitch;
-      view.yaw += dy * 0.13; view.pitch += dp * 0.13;
-      if (Math.abs(dy) < 0.004 && Math.abs(dp) < 0.004) view.tgt = null;
-    } else if (Math.abs(view.vyaw) > 0.0004 || Math.abs(view.vpitch) > 0.0004){
-      view.yaw += view.vyaw; view.pitch = clamp(view.pitch + view.vpitch, -1.45, 1.45);
-      view.vyaw *= 0.93; view.vpitch *= 0.93;
+      const T = view.tgt.M; let diff = 0;
+      const M2 = view.M.map((v, i) => { diff += Math.abs(T[i] - v); return v + (T[i] - v) * 0.14; });
+      view.M = diff < 0.02 ? T : orthoM(M2);
+      if (diff < 0.02) view.tgt = null;
+    } else if (Math.abs(view.vx) > 0.0004 || Math.abs(view.vy) > 0.0004){
+      spin(view.vx, view.vy); view.vx *= 0.93; view.vy *= 0.93;
     }
   }
   setRot();
@@ -1148,14 +1186,24 @@ function draw3d(now, dt){
     const bx = cell.v[0] + .5 * n[0], by = cell.v[1] + .5 * n[1], bz = cell.v[2] + .5 * n[2];
     ctx.beginPath();
     [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach((ab, j) => {
-      const p = [bx, by, bz]; p[u] += ab[0] * 0.485; p[w] += ab[1] * 0.485;
+      const p = [bx, by, bz]; p[u] += ab[0] * 0.505; p[w] += ab[1] * 0.505;
       const q = proj3(S, p[0], p[1], p[2]);
       j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
     });
     ctx.closePath();
     const shade = clamp(0.5 + 0.5 * (e.nv[0] * LIGHT3[0] + e.nv[1] * LIGHT3[1] + e.nv[2] * LIGHT3[2]), 0, 1);
     ctx.fillStyle = faceFill(shade); ctx.fill();
-    ctx.lineWidth = 1; ctx.strokeStyle = themeEff === 'light' ? 'rgba(71,85,105,.45)' : 'rgba(148,163,184,.28)'; ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = ctx.fillStyle; ctx.stroke();
+    // outline only where the surface really bends (no grid of little squares)
+    ctx.strokeStyle = themeEff === 'light' ? 'rgba(51,65,85,.55)' : 'rgba(186,200,225,.4)'; ctx.lineWidth = 1.3;
+    for (let d = 0; d < 6; d++){
+      if ((d >> 1) === k) continue;
+      const nx = S.nb[i][d]; if (nx.k === 0) continue;
+      const t = AX[d], a3 = 3 - k - (d >> 1), p1 = [bx + .5 * t[0], by + .5 * t[1], bz + .5 * t[2]], p2 = p1.slice();
+      p1[a3] -= .5; p2[a3] += .5;
+      const q1 = proj3(S, p1[0], p1[1], p1[2]), q2 = proj3(S, p2[0], p2[1], p2[2]);
+      ctx.beginPath(); ctx.moveTo(q1[0], q1[1]); ctx.lineTo(q2[0], q2[1]); ctx.stroke();
+    }
     const id = game.occ[i];
     if (id !== -1){
       const a = game.arrows[id];
@@ -1181,25 +1229,24 @@ function draw3d(now, dt){
 // turn the shape so that surface cell `ci` faces the player
 function aimAt(ci){
   const n = AX[game.S.cells[ci].f], h = Math.hypot(n[0], n[2]);
-  let yaw = view.yaw;
-  if (h > 0.01) yaw = Math.atan2(-n[0], n[2]) + 0.45;
-  view.tgt = { yaw, pitch: clamp(Math.atan2(n[1], h) + 0.4, -1.3, 1.3) };
-  view.vyaw = view.vpitch = 0;
+  const yaw = h > 0.01 ? Math.atan2(-n[0], n[2]) + 0.45 : -0.7;
+  view.tgt = { M: ypMat(yaw, clamp(Math.atan2(n[1], h) + 0.4, -1.3, 1.3)) };
+  view.vx = view.vy = 0;
 }
 
 cv.addEventListener('pointerdown', e => {
   if (!game || game.kind !== '3d') return;
   try{ cv.setPointerCapture(e.pointerId); }catch(_){}
   drag3 = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false };
-  view.vyaw = view.vpitch = 0; view.tgt = null;
+  view.vx = view.vy = 0; view.tgt = null;
 });
 cv.addEventListener('pointermove', e => {
   if (!drag3 || !game || game.kind !== '3d') return;
   if (!drag3.moved && Math.hypot(e.clientX - drag3.sx, e.clientY - drag3.sy) > 8) drag3.moved = true;
   if (drag3.moved){
     const dx = e.clientX - drag3.x, dy = e.clientY - drag3.y;
-    view.yaw += dx * 0.0095; view.pitch = clamp(view.pitch + dy * 0.0095, -1.45, 1.45);
-    view.vyaw = dx * 0.0095; view.vpitch = dy * 0.0095;
+    spin(dx * 0.0095, dy * 0.0095);
+    view.vx = dx * 0.0095; view.vy = dy * 0.0095;
   }
   drag3.x = e.clientX; drag3.y = e.clientY;
 });
@@ -1344,7 +1391,7 @@ function renderHome(){
   $('hTag').textContent = t('tagline');
   $('hCoins').textContent = '🪙 ' + coins;
   $('hPlay').innerHTML = '<b>▦ ' + t('flat') + '</b><small>' + t('level') + ' ' + level + '</small>';
-  $('hPlay3').innerHTML = '<b>🧊 3D</b><small>' + t('level') + ' ' + level3 + ' · ' + t('sh_' + SHAPES[levelParams3(level3).si].id) + '</small>';
+  $('hPlay3').innerHTML = '<b>🧊 3D</b><small>' + t('level') + ' ' + level3 + ' · ' + t('sh_' + SHAPES[levelParams3(level3).si].id.replace(/^cube[67]$/, 'cube5')) + '</small>';
   $('hSave').textContent = t('saveBtn');
   $('hDaily').innerHTML = t('dailyBtn') + '<small>' +
     (ds.doneToday ? t('done') + ' · ' + timeToNextDaily() : t('today')) +
